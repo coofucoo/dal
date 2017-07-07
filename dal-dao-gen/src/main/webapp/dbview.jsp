@@ -14,58 +14,19 @@
     <meta name="description" content="">
     <meta name="author" content="">
     <title>Ctrip DAO Generator</title>
-    <!-- Bootstrap core CSS -->
-    <link
-            href="/static/bootstrap/css/bootstrap.min.css?codegen=${version}"
-            rel="stylesheet">
-    <link
-            href="/static/bootstrap/css/bootstrap-responsive.min.css?codegen=${version}"
-            rel="stylesheet">
-    <link href="/static/w2ui/w2ui-1.3.2.min.css?codegen=${version}"
-          rel="stylesheet"/>
-    <link rel="stylesheet"
-          href="/static/jstree/themes/default/style.min.css?codegen=${version}"/>
-    <!-- <link
-	href="/static/font-awesome/css/font-awesome.css?codegen=${version}"
-	rel="stylesheet"> -->
-    <link href="/static/css/multiple-select.css?codegen=${version}"
-          rel="stylesheet">
-    <link
-            href="/static/css/selectize.bootstrap3.css?codegen=${version}"
-            rel="stylesheet">
-    <link href="/static/css/common.css?codegen=${version}"
-          rel="stylesheet">
-
-    <!-- Documentation extras -->
-    <!--
-             <link href="../css/docs.css" rel="stylesheet">
-             -->
-    <!--
-             <link href="../css/pygments-manni.css" rel="stylesheet">
-             -->
-    <!--[if lt IE 9]>
-    <script src="./docs-assets/js/ie8-responsive-file-warning.js"></script>
-    <![endif]-->
-    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]-->
     <!-- Favicons -->
-    <link rel="shortcut icon" href="/static/images/favicon.ico">
+    <link href="/static/images/favicon.ico" rel="shortcut icon">
+    <link href="/static/css/common.css?codegen=${version}" rel="stylesheet">
+    <!-- Bootstrap core CSS -->
+    <link href="/static/bootstrap/css/bootstrap.min.css?codegen=${version}" rel="stylesheet">
+    <link href="/static/bootstrap/css/bootstrap-responsive.min.css?codegen=${version}" rel="stylesheet">
+    <link href="/static/w2ui/w2ui-1.3.2.min.css?codegen=${version}" rel="stylesheet"/>
+    <link href="/static/jstree/themes/default/style.min.css?codegen=${version}" rel="stylesheet"/>
+    <link href="/static/css/multiple-select.css?codegen=${version}" rel="stylesheet">
+    <link href="/static/css/selectize.bootstrap3.css?codegen=${version}" rel="stylesheet">
     <!-- Loading Flat UI -->
-    <link
-            href="/static/Flat-UI-master/css/flat-ui.css?codegen=${version}"
-            rel="stylesheet">
-    <link
-            href="/static/Flat-UI-master/css/demo.css?codegen=${version}"
-            rel="stylesheet">
-
-    <!-- HTML5 shim, for IE6-8 support of HTML5 elements. All other JS at the end of file. -->
-    <!--[if lt IE 9]>
-    <script src="/static/Flat-UI-master/js/html5shiv.js"></script>
-    <script src="/static/Flat-UI-master/js/respond.min.js"></script>
-    <![endif]-->
+    <link href="/static/Flat-UI-master/css/flat-ui.css?codegen=${version}" rel="stylesheet">
+    <link href="/static/Flat-UI-master/css/demo.css?codegen=${version}" rel="stylesheet">
 </head>
 <body>
 <!-- Docs master nav -->
@@ -132,19 +93,41 @@
                     <div class="row-fluid">
                         <div class="control-group">
                             <label class="control-label popup_label" style="width: 130px;">All-In-One
-                                Name:</label> <input id="allinonename" class="span8 input-sm"
-                                                     type="text">
+                                Name:</label> <input id="allinonename" class="span5 input-sm"
+                                                     type="text"><a id="validateKeyname"
+                                                                    class="ctip"
+                                                                    data-toggle="tooltip" data-placement="right"
+                                                                    html="1"
+                                                                    title="检查All-In-One Name有效性" style="display: none;">
+                            &nbsp;检查有效性</a>
                         </div>
                     </div>
-                </div>
-                <div class="row-fluid">
-                    <div class="control-group">
-                        <label id="error_msg" class="control-label popup_label"
-                               style="color: red;"></label>
+                    <div class="row-fluid" style="margin-top: 12px">
+                        <div class="control-group">
+                            <label class="popup_label">
+                                <input id="add_to_group" type="checkbox" checked="checked"> 保存时添加到我的DAL Team中
+                            </label>&nbsp;
+                            <span id="dalgroupspan"><select id="dalgroup" class="span6"></select></span>
+                        </div>
+                    </div>
+                    <div class="row-fluid" style="margin-top: 12px">
+                        <div class="control-group">
+                            <label class="popup_label"><input id="gen_default_dbset" type="checkbox" checked="checked">
+                                保存时生成默认的逻辑数据库（databaseSet
+                                和 databaseSet Entry)
+                                <a href="#" class="ctip" data-toggle="tooltip" data-placement="bottom" html="1" title="
+									&lt; databaseSet name='XXX' provider='sqlProvider' shardStrategy=' ' &gt; </br>
+							            &lt; add  name='XXX' databaseType='Master' sharding=' ' connectionString='XXX'/ &gt; </br>
+							        &lt; /databaseSet &gt;</br>其中XXX即为所选择的数据库名">
+                                    <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
+                                </a>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
+                <label id="error_msg" class="control-label popup_label" style="color: red;"></label>
                 <button id="conn_test" type="button" class="btn btn-success">连接测试</button>
                 <button id="add_new_db_next" type="button" class="btn btn-primary">下一步</button>
                 <button id="add_new_db_prev" type="button" class="btn btn-info">上一步</button>
@@ -261,25 +244,24 @@
     </div>
 </div>
 
-<!-- Bootstrap core JavaScript================================================== -->
-<!-- Placed at the end of the document so the pages load faster -->
-<script
-        src="/static/jquery/jquery-1.10.2.min.js?codegen=${version}"></script>
-<script
-        src="/static/bootstrap/js/bootstrap.min.js?codegen=${version}"></script>
+<!--[if lt IE 9]>
+<script src="./docs-assets/js/ie8-responsive-file-warning.js"></script>
+<![endif]-->
+<!--[if lt IE 9]>
+<script src="/static/Flat-UI-master/js/html5shiv.js"></script>
+<script src="/static/Flat-UI-master/js/respond.min.js"></script>
+<![endif]-->
+<script src="/static/jquery/jquery-1.10.2.min.js?codegen=${version}"></script>
+<script src="/static/jquery/jquery.blockui.min.js?codegen=${version}"></script>
+<script src="/static/jquery/jquery.multiple.select.js?codegen=${version}"></script>
+<script src="/static/bootstrap/js/bootstrap.min.js?codegen=${version}"></script>
 <script src="/static/w2ui/w2ui-1.3.2.min.js?codegen=${version}"></script>
 <script src="/static/jstree/jstree.js?codegen=${version}"></script>
-<script
-        src="/static/jquery/jquery.blockui.min.js?codegen=${version}"></script>
 <script src="/static/js/sprintf.js?codegen=${version}"></script>
-<script
-        src="/static/jquery/jquery.multiple.select.js?codegen=${version}"></script>
 <script src="/static/js/selectize.min.js?codegen=${version}"></script>
 <script src="/static/js/cblock.js?codegen=${version}"></script>
 <script src="/static/js/ajaxutil.js?codegen=${version}"></script>
-
 <script src="/static/js/header.js?codegen=${version}"></script>
 <script src="/static/js/dbview.js?codegen=${version}"></script>
-
 </body>
 </html>

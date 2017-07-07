@@ -23,6 +23,8 @@ import com.ctrip.platform.dal.dao.StatementParameters;
 import com.ctrip.platform.dal.dao.configure.DalConfigure;
 import com.ctrip.platform.dal.dao.helper.DalColumnMapRowMapper;
 import com.ctrip.platform.dal.dao.helper.DalRowMapperExtractor;
+import com.ctrip.platform.dal.dao.helper.HintsAwareExtractor;
+import com.ctrip.platform.dal.exceptions.DalException;
 
 /**
  * The direct connection implementation for DalClient.
@@ -51,7 +53,10 @@ public class DalDirectClient implements DalClient {
 				rs = preparedStatement.executeQuery();
 				DalWatcher.endExectue();
 				
-				return extractor.extract(rs);
+				if(extractor instanceof HintsAwareExtractor)
+				    return ((DalResultSetExtractor<T>)((HintsAwareExtractor)extractor).extractWith(hints)).extract(rs);
+				else
+				    return extractor.extract(rs);
 			}
 		};
 		action.populate(DalEventEnum.QUERY, sql, parameters);
@@ -73,7 +78,12 @@ public class DalDirectClient implements DalClient {
 				preparedStatement.execute();
 				for(DalResultSetExtractor<?> extractor: extractors) {
 		            ResultSet resultSet = preparedStatement.getResultSet();
-	            	result.add((Object)extractor.extract(resultSet));
+		            Object partResult;
+	                if(extractor instanceof HintsAwareExtractor)
+	                    partResult = ((DalResultSetExtractor)((HintsAwareExtractor)extractor).extractWith(hints)).extract(resultSet);
+	                else
+	                    partResult = extractor.extract(resultSet);
+	            	result.add(partResult);
 	                preparedStatement.getMoreResults();
 				}
 
@@ -221,7 +231,10 @@ public class DalDirectClient implements DalClient {
 						callParameters.add(parameter);
 					}
 				}
-                
+				
+				if(hints.is(DalHintEnum.retrieveAllSpResults) && resultParameters.size() > 0)
+					throw new DalException("Dal hint 'autoRetrieveAllResults' should only be used when there is no special result parameter specified");
+				
 				conn = getConnection(hints, this);
 				
 				callableStatement = createCallableStatement(conn, callString, parameters, hints);
@@ -270,9 +283,15 @@ public class DalDirectClient implements DalClient {
 	
 	private Map<String, Object> extractReturnedResults(CallableStatement statement, List<StatementParameter> resultParameters, int updateCount, DalHints hints) throws SQLException {
 		Map<String, Object> returnedResults = new LinkedHashMap<String, Object>();
-		if(hints.is(DalHintEnum.skipResultsProcessing) || resultParameters.size() == 0)
+		if(hints.is(DalHintEnum.skipResultsProcessing))
 			return returnedResults;
 
+		if(hints.is(DalHintEnum.retrieveAllSpResults))
+			return autoExtractReturnedResults(statement, updateCount);
+		
+		if(resultParameters.size() == 0)
+			return returnedResults;
+		
 		boolean moreResults;
 		int index = 0;
 		do {
@@ -292,12 +311,35 @@ public class DalDirectClient implements DalClient {
 		return returnedResults;
 	}
 	
+	private Map<String, Object> autoExtractReturnedResults(CallableStatement statement, int updateCount) throws SQLException {
+		Map<String, Object> returnedResults = new LinkedHashMap<String, Object>();
+		boolean moreResults;
+		int index = 0;
+		DalRowMapperExtractor<Map<String, Object>> extractor;
+		do {
+			extractor = new DalRowMapperExtractor<>(new DalColumnMapRowMapper());
+			String key = (updateCount == -1 ? "ResultSet_" : "UpdateCount_") + index;
+			Object value = updateCount == -1 ? extractor.extract(statement.getResultSet()) :
+				updateCount;
+			moreResults = statement.getMoreResults();
+			updateCount = statement.getUpdateCount();
+			index++;
+			returnedResults.put(key, value);
+		}
+		while (moreResults || updateCount != -1);
+
+		return returnedResults;
+	}
+	
 	private Map<String, Object> extractOutputParameters(CallableStatement statement, List<StatementParameter> callParameters) 
 			throws SQLException {
 
 		Map<String, Object> returnedResults = new LinkedHashMap<String, Object>();
 		for (StatementParameter parameter : callParameters) {
-			Object value = statement.getObject(parameter.getName());
+			Object value = parameter.getName() == null ?
+					statement.getObject(parameter.getIndex()):
+					statement.getObject(parameter.getName());
+
 			parameter.setValue(value);
 			if (value instanceof ResultSet) {
 				value = parameter.getResultSetExtractor().extract(statement.getResultSet());

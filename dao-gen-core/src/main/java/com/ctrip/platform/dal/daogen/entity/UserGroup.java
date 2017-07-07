@@ -1,64 +1,80 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.sql.Types;
+
+@Entity
+@Database(name = "dao")
+@Table(name = "user_group")
 public class UserGroup {
-    private int id;
-    private int user_id;
-    private int group_id;
-    private int role = 1;
-    private int adduser = 1;
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
 
-    public static UserGroup visitRow(ResultSet rs) throws SQLException {
-        UserGroup ug = new UserGroup();
-        ug.setId(rs.getInt("id"));
-        ug.setUser_id(rs.getInt("user_id"));
-        ug.setGroup_id(rs.getInt("group_id"));
-        ug.setRole(rs.getInt("role"));
-        ug.setAdduser(rs.getInt("adduser"));
-        return ug;
-    }
+    @Column(name = "user_id")
+    @Type(value = Types.INTEGER)
+    private Integer user_id;
 
-    public int getId() {
+    @Column(name = "group_id")
+    @Type(value = Types.INTEGER)
+    private Integer group_id;
+
+    @Column(name = "role")
+    @Type(value = Types.INTEGER)
+    private Integer role = 1;
+
+    @Column(name = "adduser")
+    @Type(value = Types.INTEGER)
+    private Integer adduser = 1;
+
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
-    public int getUser_id() {
+    public Integer getUser_id() {
         return user_id;
     }
 
-    public void setUser_id(int user_id) {
+    public void setUser_id(Integer user_id) {
         this.user_id = user_id;
     }
 
-    public int getGroup_id() {
+    public Integer getGroup_id() {
         return group_id;
     }
 
-    public void setGroup_id(int group_id) {
+    public void setGroup_id(Integer group_id) {
         this.group_id = group_id;
     }
 
-    public int getRole() {
+    public Integer getRole() {
         return role;
     }
 
-    public void setRole(int role) {
+    public void setRole(Integer role) {
         this.role = role;
     }
 
-    public int getAdduser() {
+    public Integer getAdduser() {
         return adduser;
     }
 
-    public void setAdduser(int adduser) {
+    public void setAdduser(Integer adduser) {
         this.adduser = adduser;
     }
-
 
 }

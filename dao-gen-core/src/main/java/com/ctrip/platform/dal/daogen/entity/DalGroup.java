@@ -1,14 +1,42 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
-public class DalGroup implements Comparable<DalGroup> {
-    private int id;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.sql.Timestamp;
+import java.sql.Types;
+
+@Entity
+@Database(name = "dao")
+@Table(name = "dal_group")
+public class DalGroup implements Comparable<DalGroup>, DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "group_name")
+    @Type(value = Types.VARCHAR)
     private String group_name;
+
+    @Column(name = "group_comment")
+    @Type(value = Types.LONGVARCHAR)
     private String group_comment;
+
+    @Column(name = "create_user_no")
+    @Type(value = Types.VARCHAR)
     private String create_user_no;
+
+    @Column(name = "create_time")
+    @Type(value = Types.TIMESTAMP)
     private Timestamp create_time;
 
     private String text;
@@ -17,26 +45,11 @@ public class DalGroup implements Comparable<DalGroup> {
 
     private boolean children;
 
-    public static DalGroup visitRow(ResultSet rs) throws SQLException {
-        DalGroup group = new DalGroup();
-        group.setId(rs.getInt(1));
-        group.setGroup_name(rs.getString(2));
-        group.setGroup_comment(rs.getString(3));
-        group.setCreate_user_no(rs.getString(4));
-        group.setCreate_time(rs.getTimestamp(5));
-        return group;
-    }
-
-    @Override
-    public int compareTo(DalGroup o) {
-        return this.group_name.compareTo(o.getGroup_name());
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -94,6 +107,11 @@ public class DalGroup implements Comparable<DalGroup> {
 
     public void setChildren(boolean children) {
         this.children = children;
+    }
+
+    @Override
+    public int compareTo(DalGroup o) {
+        return group_name.compareTo(o.getGroup_name());
     }
 
 }

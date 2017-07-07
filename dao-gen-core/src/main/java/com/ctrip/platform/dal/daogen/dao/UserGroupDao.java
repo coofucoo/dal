@@ -1,101 +1,84 @@
 package com.ctrip.platform.dal.daogen.dao;
 
+import com.ctrip.platform.dal.dao.DalHints;
+import com.ctrip.platform.dal.dao.DalRowMapper;
+import com.ctrip.platform.dal.dao.DalTableDao;
+import com.ctrip.platform.dal.dao.StatementParameters;
+import com.ctrip.platform.dal.dao.helper.DalDefaultJpaMapper;
+import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
+import com.ctrip.platform.dal.dao.sqlbuilder.FreeSelectSqlBuilder;
+import com.ctrip.platform.dal.dao.sqlbuilder.FreeUpdateSqlBuilder;
 import com.ctrip.platform.dal.daogen.entity.UserGroup;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
-import javax.sql.DataSource;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
-public class UserGroupDao {
-    private JdbcTemplate jdbcTemplate;
+public class UserGroupDao extends BaseDao {
+    private DalRowMapper<UserGroup> userGroupRowMapper = null;
+    private DalTableDao<UserGroup> client;
 
-    public void setDataSource(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
+    public UserGroupDao() throws SQLException {
+        userGroupRowMapper = new DalDefaultJpaMapper<>(UserGroup.class);
+        client = new DalTableDao<>(new DalDefaultJpaParser<>(UserGroup.class));
     }
 
-    public List<UserGroup> getAllUserGroup() {
-        return this.jdbcTemplate.query("SELECT id, user_id, group_id, role, adduser FROM user_group",
-                new RowMapper<UserGroup>() {
-                    public UserGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return UserGroup.visitRow(rs);
-                    }
-                });
+    public List<UserGroup> getUserGroupByUserId(Integer userId) throws SQLException {
+        FreeSelectSqlBuilder<List<UserGroup>> builder = new FreeSelectSqlBuilder<>(dbCategory);
+        builder.setTemplate("SELECT id, user_id, group_id, role, adduser FROM user_group WHERE user_id = ?");
+        StatementParameters parameters = new StatementParameters();
+        int i = 1;
+        parameters.set(i++, "user_id", Types.INTEGER, userId);
+        builder.mapWith(userGroupRowMapper);
+        DalHints hints = DalHints.createIfAbsent(null).allowPartial();
+        return queryDao.query(builder, parameters, hints);
     }
 
-    public List<UserGroup> getUserGroupById(Integer id) {
-        return this.jdbcTemplate.query("SELECT id, user_id, group_id, role, adduser FROM user_group WHERE id = ?",
-                new Object[]{id}, new RowMapper<UserGroup>() {
-                    public UserGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return UserGroup.visitRow(rs);
-                    }
-                });
+    public List<UserGroup> getUserGroupByGroupIdAndUserId(Integer groupId, Integer userId) throws SQLException {
+        FreeSelectSqlBuilder<List<UserGroup>> builder = new FreeSelectSqlBuilder<>(dbCategory);
+        builder.setTemplate(
+                "SELECT id, user_id, group_id, role, adduser FROM user_group WHERE group_id = ? AND user_id=?");
+        StatementParameters parameters = new StatementParameters();
+        int i = 1;
+        parameters.set(i++, "group_id", Types.INTEGER, groupId);
+        parameters.set(i++, "user_id", Types.INTEGER, userId);
+        builder.mapWith(userGroupRowMapper);
+        DalHints hints = DalHints.createIfAbsent(null).allowPartial();
+        return queryDao.query(builder, parameters, hints);
     }
 
-    public List<UserGroup> getUserGroupByUserId(Integer userId) {
-        return this.jdbcTemplate.query("SELECT id, user_id, group_id, role, adduser FROM user_group WHERE user_id = ?",
-                new Object[]{userId}, new RowMapper<UserGroup>() {
-                    public UserGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return UserGroup.visitRow(rs);
-                    }
-                });
+    public int insertUserGroup(Integer user_id, Integer group_id, Integer role, Integer adduser) throws SQLException {
+        UserGroup userGroup = new UserGroup();
+        userGroup.setUser_id(user_id);
+        userGroup.setGroup_id(group_id);
+        userGroup.setRole(role);
+        userGroup.setAdduser(adduser);
+        DalHints hints = DalHints.createIfAbsent(null);
+        return client.insert(hints, userGroup);
     }
 
-    public List<UserGroup> getUserGroupByGroupId(Integer groupId) {
-        return this.jdbcTemplate.query("SELECT id, user_id, group_id, role, adduser FROM user_group WHERE group_id = ?",
-                new Object[]{groupId}, new RowMapper<UserGroup>() {
-                    public UserGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return UserGroup.visitRow(rs);
-                    }
-                });
+    public int deleteUserFromGroup(Integer user_id, Integer group_id) throws SQLException {
+        FreeUpdateSqlBuilder builder = new FreeUpdateSqlBuilder(dbCategory);
+        builder.setTemplate("DELETE FROM user_group WHERE user_id=? AND group_id=?");
+        StatementParameters parameters = new StatementParameters();
+        int i = 1;
+        parameters.set(i++, "user_id", Types.INTEGER, user_id);
+        parameters.set(i++, "group_id", Types.INTEGER, group_id);
+        DalHints hints = DalHints.createIfAbsent(null);
+        return queryDao.update(builder, parameters, hints);
     }
 
-    public List<UserGroup> getUserGroupByGroupIdAndUserId(Integer groupId, Integer userId) {
-        return this.jdbcTemplate.query("SELECT id, user_id, group_id, role, adduser FROM user_group WHERE group_id = ? AND user_id=?",
-                new Object[]{groupId, userId}, new RowMapper<UserGroup>() {
-                    public UserGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return UserGroup.visitRow(rs);
-                    }
-                });
-    }
-
-    public int insertUserGroup(UserGroup ug) {
-        return this.jdbcTemplate.update("INSERT INTO user_group(id, user_id, group_id, role, adduser) VALUE(?,?,?,?,?)",
-                ug.getId(), ug.getUser_id(), ug.getGroup_id(), ug.getRole(), ug.getAdduser());
-    }
-
-    public int insertUserGroup(Integer user_id, Integer group_id, Integer role, Integer adduser) {
-        return this.jdbcTemplate.update("INSERT INTO user_group(user_id, group_id, role, adduser) VALUE(?,?,?,?)", user_id, group_id, role, adduser);
-    }
-
-    public int deleteUserFromGroup(Integer user_id, Integer group_id) {
-        try {
-            return this.jdbcTemplate.update("DELETE FROM user_group WHERE user_id=? AND group_id=?", user_id, group_id);
-        } catch (DataAccessException ex) {
-            ex.printStackTrace();
-            return -1;
-        }
-    }
-
-    public int deleteUserFromGroup(Integer ugId) {
-        try {
-            return this.jdbcTemplate.update("DELETE FROM user_group WHERE id=?", ugId);
-        } catch (DataAccessException ex) {
-            ex.printStackTrace();
-            return -1;
-        }
-    }
-
-    public int updateUserPersimion(Integer userId, Integer groupId, Integer role, Integer adduser) {
-        try {
-            return this.jdbcTemplate.update("UPDATE user_group SET role=?, adduser=?  WHERE user_id=? AND group_id=?", role, adduser, userId, groupId);
-        } catch (DataAccessException ex) {
-            ex.printStackTrace();
-            return -1;
-        }
+    public int updateUserPersimion(Integer userId, Integer groupId, Integer role, Integer adduser) throws SQLException {
+        FreeUpdateSqlBuilder builder = new FreeUpdateSqlBuilder(dbCategory);
+        builder.setTemplate("UPDATE user_group SET role=?, adduser=?  WHERE user_id=? AND group_id=?");
+        StatementParameters parameters = new StatementParameters();
+        int i = 1;
+        parameters.set(i++, "role", Types.INTEGER, role);
+        parameters.set(i++, "adduser", Types.INTEGER, adduser);
+        parameters.set(i++, "user_id", Types.INTEGER, userId);
+        parameters.set(i++, "group_id", Types.INTEGER, groupId);
+        DalHints hints = DalHints.createIfAbsent(null);
+        return queryDao.update(builder, parameters, hints);
     }
 
 }

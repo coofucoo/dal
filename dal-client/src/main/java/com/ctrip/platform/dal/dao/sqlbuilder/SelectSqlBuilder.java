@@ -12,8 +12,6 @@ public class SelectSqlBuilder extends AbstractSqlBuilder implements TableSelectB
 	private BaseTableSelectBuilder queryBuilder;
 	
 	private boolean isPagination = false;
-	private static final String MYSQL_PAGE_SUFFIX_TPL= " limit ?, ?";
-	private static final String SQLSVR_PAGE_SUFFIX_TPL= " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 	
 	/**
 	 * Important Note: In this case, the generated code with set page info into statement parameters.
@@ -150,13 +148,19 @@ public class SelectSqlBuilder extends AbstractSqlBuilder implements TableSelectB
 		return this;
 	}
 	
+	@Override
+	public <T> SelectBuilder mapWith(Class<T> type) {
+		queryBuilder.mapWith(type);
+		return this;
+	}
+	
 	public SelectSqlBuilder simpleType() {
 		queryBuilder.simpleType();
 		return this;
 	}
 	
 	@Override
-	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) {
+	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) throws SQLException {
 		return queryBuilder.getResultExtractor(hints);
 	}
 	
@@ -182,8 +186,8 @@ public class SelectSqlBuilder extends AbstractSqlBuilder implements TableSelectB
 		preBuild();
 
 		String sql = queryBuilder.build();
-		String suffix = DatabaseCategory.SqlServer == queryBuilder.getDbCategory() ? SQLSVR_PAGE_SUFFIX_TPL : MYSQL_PAGE_SUFFIX_TPL;
-
+		String suffix = queryBuilder.getDbCategory().getPageSuffixTpl();
+	
 		// If it is the old code gen case, we need to append page suffix
 		return isPagination ? sql + suffix : sql;
 	}

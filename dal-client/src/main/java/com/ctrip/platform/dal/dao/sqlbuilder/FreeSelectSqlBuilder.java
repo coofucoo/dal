@@ -19,9 +19,6 @@ import com.ctrip.platform.dal.dao.helper.DalSingleResultExtractor;
 import com.ctrip.platform.dal.dao.helper.DalSingleResultMerger;
 
 public class FreeSelectSqlBuilder<K> implements SqlBuilder, SelectBuilder {
-	private static final String MYSQL_PAGE_SUFFIX_TPL= " limit %d, %d";
-	private static final String SQLSVR_PAGE_SUFFIX_TPL= " OFFSET %d ROWS FETCH NEXT %d ROWS ONLY";
-
 	private String selectSqlTemplate;
 	private DatabaseCategory dbCategory;
 	private StatementParameters parameters;
@@ -66,15 +63,16 @@ public class FreeSelectSqlBuilder<K> implements SqlBuilder, SelectBuilder {
 		if(count  == 0)
 			return selectSqlTemplate;
 		
-		String suffix = DatabaseCategory.SqlServer == dbCategory ? SQLSVR_PAGE_SUFFIX_TPL : MYSQL_PAGE_SUFFIX_TPL;
-		String sql = selectSqlTemplate + suffix;
-		
-		return String.format(sql, start, count);
+		return dbCategory.buildPage(selectSqlTemplate, start, count);
 	}
 
 	public <T> FreeSelectSqlBuilder<K> mapWith(DalRowMapper<T> mapper) {
 		this.mapper = mapper;
 		return this;
+	}
+	
+	public <T> FreeSelectSqlBuilder<K> mapWith(Class<T> type) {
+		return mapWith(new DalObjectRowMapper(type));
 	}
 
 	public FreeSelectSqlBuilder<K> simpleType() {
@@ -93,6 +91,11 @@ public class FreeSelectSqlBuilder<K> implements SqlBuilder, SelectBuilder {
 	
 	public FreeSelectSqlBuilder<K> nullable() {
 		nullable = true;
+		return this;
+	}
+	
+	public FreeSelectSqlBuilder<K> setNullable(boolean nullable) {
+		this.nullable = nullable;
 		return this;
 	}
 	
@@ -153,7 +156,7 @@ public class FreeSelectSqlBuilder<K> implements SqlBuilder, SelectBuilder {
 		return count > 0 ? new DalRangedResultMerger((Comparator)hints.getSorter(), count): new DalListMerger((Comparator)hints.getSorter());
 	}
 
-	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) {
+	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) throws SQLException { 
 		if(extractor != null)
 			return extractor;
 

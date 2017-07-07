@@ -1,40 +1,68 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
-public class DalGroupDB implements Comparable<DalGroupDB> {
-    private int id;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.sql.Types;
+
+@Entity
+@Database(name = "dao")
+@Table(name = "alldbs")
+public class DalGroupDB implements Comparable<DalGroupDB>, DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "dbname")
+    @Type(value = Types.VARCHAR)
     private String dbname;
+
+    @Column(name = "comment")
+    @Type(value = Types.LONGVARCHAR)
     private String comment;
-    private int dal_group_id;
+
+    @Column(name = "dal_group_id")
+    @Type(value = Types.INTEGER)
+    private Integer dal_group_id;
+
+    @Column(name = "db_address")
+    @Type(value = Types.VARCHAR)
     private String db_address;
+
+    @Column(name = "db_port")
+    @Type(value = Types.VARCHAR)
     private String db_port;
+
+    @Column(name = "db_user")
+    @Type(value = Types.VARCHAR)
     private String db_user;
+
+    @Column(name = "db_password")
+    @Type(value = Types.VARCHAR)
     private String db_password;
+
+    @Column(name = "db_catalog")
+    @Type(value = Types.VARCHAR)
     private String db_catalog;
+
+    @Column(name = "db_providerName")
+    @Type(value = Types.VARCHAR)
     private String db_providerName;
 
-    public static DalGroupDB visitRow(ResultSet rs) throws SQLException {
-        DalGroupDB group = new DalGroupDB();
-        group.setId(rs.getInt(1));
-        group.setDbname(rs.getString(2));
-        group.setComment(rs.getString(3));
-        group.setDal_group_id(rs.getInt(4));
-        group.setDb_address(rs.getString(5));
-        group.setDb_port(rs.getString(6));
-        group.setDb_user(rs.getString(7));
-        group.setDb_password(rs.getString(8));
-        group.setDb_catalog(rs.getString(9));
-        group.setDb_providerName(rs.getString(10));
-        return group;
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -54,11 +82,11 @@ public class DalGroupDB implements Comparable<DalGroupDB> {
         this.comment = comment;
     }
 
-    public int getDal_group_id() {
+    public Integer getDal_group_id() {
         return dal_group_id;
     }
 
-    public void setDal_group_id(int dal_group_id) {
+    public void setDal_group_id(Integer dal_group_id) {
         this.dal_group_id = dal_group_id;
     }
 
@@ -112,17 +140,14 @@ public class DalGroupDB implements Comparable<DalGroupDB> {
 
     @Override
     public int compareTo(DalGroupDB o) {
-        return this.dbname.compareTo(o.getDbname());
+        return dbname.compareTo(o.getDbname());
     }
 
     @Override
     public String toString() {
-        return "DalGroupDB [id=" + id + ", dbname=" + dbname + ", comment="
-                + comment + ", dal_group_id=" + dal_group_id + ", db_address="
-                + db_address + ", db_port=" + db_port + ", db_user=" + db_user
-                + ", db_password=" + db_password + ", db_catalog=" + db_catalog
-                + ", db_providerName=" + db_providerName + "]";
+        return "DalGroupDB [id=" + id + ", dbname=" + dbname + ", comment=" + comment + ", dal_group_id=" + dal_group_id
+                + ", db_address=" + db_address + ", db_port=" + db_port + ", db_user=" + db_user + ", db_password="
+                + db_password + ", db_catalog=" + db_catalog + ", db_providerName=" + db_providerName + "]";
     }
-
 
 }

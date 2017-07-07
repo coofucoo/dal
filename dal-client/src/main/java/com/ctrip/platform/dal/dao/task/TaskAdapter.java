@@ -6,11 +6,14 @@ import static com.ctrip.platform.dal.dao.helper.DalShardingHelper.isTableShardin
 import static com.ctrip.platform.dal.dao.helper.DalShardingHelper.locateTableShardId;
 
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +22,13 @@ import java.util.Set;
 import com.ctrip.platform.dal.common.enums.DatabaseCategory;
 import com.ctrip.platform.dal.dao.DalClient;
 import com.ctrip.platform.dal.dao.DalClientFactory;
+import com.ctrip.platform.dal.dao.DalHintEnum;
 import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.DalParser;
 import com.ctrip.platform.dal.dao.DalQueryDao;
 import com.ctrip.platform.dal.dao.StatementParameters;
+import com.ctrip.platform.dal.dao.UpdatableEntity;
 
-/**
- * TODO do we need query task?
- * @author jhhe
- *
- */
 public class TaskAdapter<T> implements DaoTask<T> {
 	public static final String GENERATED_KEY = "GENERATED_KEY";
 
@@ -53,8 +53,14 @@ public class TaskAdapter<T> implements DaoTask<T> {
 	protected Set<String> pkColumns;
 	protected Set<String> sensitiveColumns;
 	protected Map<String, Integer> columnTypes = new HashMap<String, Integer>();
-	protected Character startDelimiter;
-	protected Character endDelimiter;
+	
+	protected String updateCriteriaTmpl;
+	protected String setValueTmpl;
+	protected String setVersionValueTmpl;
+	protected boolean hasVersion;
+	protected boolean isVersionUpdatable;
+	protected Set<String> defaultUpdateColumnNames;
+
 	
 	public boolean tableShardingEnabled;
 	protected String rawTableName;
@@ -70,30 +76,58 @@ public class TaskAdapter<T> implements DaoTask<T> {
 		initColumnTypes();
 		
 		dbCategory = getDatabaseSet(logicDbName).getDatabaseCategory();
-		setDatabaseCategory(dbCategory);
+		initDbSpecific();
 		initSensitiveColumns();
 	}
 	
 	public void initDbSpecific() {
 		pkSql = initPkSql();
+		initUpdateColumns();
+		setValueTmpl = dbCategory.getNullableUpdateTpl();
+		initVersionColumnUpdateTemplate();
+	}
+	
+	private void initUpdateColumns() {
+		defaultUpdateColumnNames = new LinkedHashSet<>(Arrays.asList(parser.getUpdatableColumnNames()));
+		
+		for (String column : parser.getPrimaryKeyNames()) {
+			defaultUpdateColumnNames.remove(column);
+		}
+		
+		hasVersion = parser.getVersionColumn() != null;
+		isVersionUpdatable = hasVersion ? defaultUpdateColumnNames.contains(parser.getVersionColumn()) : false;
+
+		// Remove Version from updatable columns
+		if(hasVersion)
+			defaultUpdateColumnNames.remove(parser.getVersionColumn());
 	}
 	
 	/**
-	 * This is to set DatabaseCategory to initialize startDelimiter/endDelimiter and findtmp.
-	 * This will apply db specific settings. So the dao is no longer reusable across different dbs.
-	 * @param dBCategory The target Db category
+	 * If there is version column and it is updatable, the column can not be null and it will always use the update version template.
 	 */
-	public void setDatabaseCategory(DatabaseCategory dbCategory) {
-		if(DatabaseCategory.MySql == dbCategory) {
-			startDelimiter = '`';
-			endDelimiter = startDelimiter;
-		} else if(DatabaseCategory.SqlServer == dbCategory ) {
-			startDelimiter = '[';
-			endDelimiter = ']';
-			findtmp = "SELECT * FROM %s WITH (NOLOCK) WHERE %s";
-		} else
-			throw new RuntimeException("Such Db category not suported yet");
-		initDbSpecific();
+	private void initVersionColumnUpdateTemplate() {
+		String versionColumn = parser.getVersionColumn();
+		updateCriteriaTmpl = pkSql;
+
+		if(versionColumn == null)
+			return;
+		
+		String quotedVersionColumn = quote(parser.getVersionColumn());
+		updateCriteriaTmpl += AND + String.format(TMPL_SET_VALUE, quotedVersionColumn);
+		
+		if(!isVersionUpdatable)
+			return;
+
+		int versionType = getColumnType(versionColumn);
+
+		String valueTmpl = null;
+		if(versionType == Types.TIMESTAMP){
+			valueTmpl = dbCategory.getTimestampExp();
+		}else{
+			valueTmpl = quote(parser.getVersionColumn()) + "+1";
+		}
+		
+		setVersionValueTmpl = quotedVersionColumn + "=" + valueTmpl;
 	}
 	
 	public String getTableName(DalHints hints) throws SQLException {
@@ -109,6 +143,22 @@ public class TaskAdapter<T> implements DaoTask<T> {
 	}
 	
 	public String getTableName(DalHints hints, StatementParameters parameters, Map<String, ?> fields) throws SQLException {
+		return quote(getRawTableName(hints, parameters, fields));
+	}
+	
+	public String getRawTableName(DalHints hints) throws SQLException {
+		return getRawTableName(hints, null, null);
+	}
+	
+	public String getRawTableName(DalHints hints, StatementParameters parameters) throws SQLException {
+		return getRawTableName(hints, parameters, null);
+	}
+	
+	public String getRawTableName(DalHints hints, Map<String, ?> fields) throws SQLException {
+		return getRawTableName(hints, null, fields);
+	}
+	
+	public String getRawTableName(DalHints hints, StatementParameters parameters, Map<String, ?> fields) throws SQLException {
 		if(tableShardingEnabled == false)
 			return rawTableName;
 		
@@ -180,7 +230,38 @@ public class TaskAdapter<T> implements DaoTask<T> {
 		}
 	}
 
-	private void addParameter(StatementParameters parameters, int index, String columnName, Object value) {
+	/**
+	 * According to DBA, call SP by parameter name will invoke sp_sproc_columns to get SP metadata,  this is a 
+	 * very costly operation. To avoid the cost, it is required to call sp by parameter index instead of name
+	 */
+	public void addParametersByIndex(StatementParameters parameters,
+			Map<String, ?> entries) {
+		int index = parameters.size() + 1;
+		for (Map.Entry<String, ?> entry : entries.entrySet()) {
+			addParameterByIndex(parameters, index++, entry.getKey(), entry.getValue());
+		}
+	}
+
+	/**
+	 * According to DBA, call SP by parameter name will invoke sp_sproc_columns to get SP metadata,  this is a 
+	 * very costly operation. To avoid the cost, it is required to call sp by parameter index instead of name
+	 */
+	public void addParametersByIndex(StatementParameters parameters,
+			Map<String, ?> entries, String[] validColumns) {
+		int index = parameters.size() + 1;
+		for(String column : validColumns){
+			addParameterByIndex(parameters, index++, column, entries.get(column));
+		}
+	}
+
+	public void addParameterByIndex(StatementParameters parameters, int index, String columnName, Object value) {
+		if(isSensitive(columnName))
+			parameters.setSensitive(index, getColumnType(columnName), value);
+		else
+			parameters.set(index, getColumnType(columnName), value);
+	}
+
+	public void addParameter(StatementParameters parameters, int index, String columnName, Object value) {
 		if(isSensitive(columnName))
 			parameters.setSensitive(index, columnName, getColumnType(columnName), value);
 		else
@@ -217,10 +298,27 @@ public class TaskAdapter<T> implements DaoTask<T> {
 		}
 		return fields;
 	}
+	
+	public Set<String> getUpdatedColumns(T rawPojo) {
+		return rawPojo instanceof UpdatableEntity ?
+				((UpdatableEntity)rawPojo).getUpdatedColumns() :
+					(Set<String>)Collections.EMPTY_SET;
+	}
+
+	public Set<String> filterColumns(DalHints hints) {
+		Set<String> qulifiedColumns = new HashSet<>(defaultUpdateColumnNames);
+		if(hints.is(DalHintEnum.includedColumns))
+			qulifiedColumns.retainAll(hints.getIncluded());
+			
+		if(hints.is(DalHintEnum.excludedColumns))
+			qulifiedColumns.removeAll(hints.getExcluded());
+			
+		return qulifiedColumns;
+	}
 
 	public Map<String, ?> removeAutoIncrementPrimaryFields(Map<String, ?> fields){
-		// This is bug here, for My Sql, auto incremental id and be part of the joint primary key.
-		// But for Ctrip, a table must have a pk defined by sigle column as mandatory, so we don't have problem here
+		// This is bug here, for My Sql, auto incremental id can be part of the joint primary key.
+		// But for Ctrip, a table must have a pk defined by single column as mandatory, so we don't have problem here
 		if(parser.isAutoIncrement())
 			fields.remove(parser.getPrimaryKeyNames()[0]);
 		return fields;
@@ -292,7 +390,7 @@ public class TaskAdapter<T> implements DaoTask<T> {
 	}
 	
 	public Map<String, ?> getPrimaryKeys(Map<String, ?> fields) {
-		Map<String, Object> pks = new HashMap<>();
+		Map<String, Object> pks = new LinkedHashMap<>();
 		for(String pkName: parser.getPrimaryKeyNames())
 			pks.put(pkName, fields.get(pkName));
 		return pks;
@@ -327,21 +425,14 @@ public class TaskAdapter<T> implements DaoTask<T> {
 	}
 	
 	public String quote(String column) {
-		if(startDelimiter == null)
-			return column;
-		return new StringBuilder().append(startDelimiter).append(column).append(endDelimiter).toString();
+		return dbCategory.quote(column);
 	}
 
 	public StringBuilder quote(StringBuilder sb, String column) {
-		if(startDelimiter == null)
-			return sb.append(column);
-		return sb.append(startDelimiter).append(column).append(endDelimiter);
+		return sb.append(dbCategory.quote(column));
 	}
 	
 	public Object[] quote(Set<String> columns) {
-		if(startDelimiter == null)
-			return columns.toArray();
-		
 		Object[] quatedColumns = columns.toArray();
 		for(int i = 0; i < quatedColumns.length; i++)
 			quatedColumns[i] = quote((String)quatedColumns[i]);
@@ -349,8 +440,6 @@ public class TaskAdapter<T> implements DaoTask<T> {
 	}
 	
 	public String[] quote(String[] columns) {
-		if(startDelimiter == null)
-			return columns;
 		String[] quatedColumns = new String[columns.length];
 		for(int i = 0; i < columns.length; i++)
 			quatedColumns[i] = quote(columns[i]);

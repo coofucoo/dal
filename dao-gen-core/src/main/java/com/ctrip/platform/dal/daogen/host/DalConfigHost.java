@@ -3,8 +3,9 @@ package com.ctrip.platform.dal.daogen.host;
 import com.ctrip.platform.dal.daogen.entity.DalGroupDB;
 import com.ctrip.platform.dal.daogen.entity.DatabaseSet;
 import com.ctrip.platform.dal.daogen.entity.DatabaseSetEntry;
-import com.ctrip.platform.dal.daogen.utils.SpringBeanGetter;
+import com.ctrip.platform.dal.daogen.utils.BeanGetter;
 
+import java.sql.SQLException;
 import java.util.*;
 
 public class DalConfigHost {
@@ -35,17 +36,16 @@ public class DalConfigHost {
         return this.databaseSetEntries.containsKey(setId) ? this.databaseSetEntries.get(setId).values() : null;
     }
 
-    public Map<String, DatabaseSetEntry> getDatabaseSetEntryMap() {
+    public Map<String, DatabaseSetEntry> getDatabaseSetEntryMap() throws SQLException {
         Map<String, DatabaseSetEntry> map = null;
         if (databaseSetEntryMap != null && databaseSetEntryMap.size() > 0) {
             map = new HashMap<>();
             Set<String> set = new HashSet<>();
             for (Map.Entry<Integer, DatabaseSetEntry> entry : databaseSetEntryMap.entrySet()) {
-                String key = String.format("'%s'", entry.getValue().getConnectionString());
-                set.add(key);
+                set.add(entry.getValue().getConnectionString());
             }
 
-            List<DalGroupDB> dbs = SpringBeanGetter.getDaoOfDalGroupDB().getGroupDbsByDbNames(set);
+            List<DalGroupDB> dbs = BeanGetter.getDaoOfDalGroupDB().getGroupDbsByDbNames(set);
 
             if (dbs != null && dbs.size() > 0) {
                 for (DalGroupDB db : dbs) {

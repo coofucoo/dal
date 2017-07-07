@@ -1,8 +1,9 @@
-package ${host.getPackageName()};
+package ${host.getPackageName()}.dao;
 
 #foreach( $field in ${host.getDaoImports()} )
 import ${field};
 #end
+import ${host.getPackageName()}.entity.${host.getPojoClassName()};
 
 import com.ctrip.platform.dal.dao.helper.DalDefaultJpaMapper;
 
@@ -24,10 +25,7 @@ public class ${host.getPojoClassName()}Dao {
 	private DalRowMapper<${host.getPojoClassName()}> mapper;
 	private DalRowMapperExtractor<${host.getPojoClassName()}> extractor;
 	private DalScalarExtractor scalarExtractor;
-	
-	/**
-	 * Initialize the instance of Hotel2GenDao
-	 */
+
 	public ${host.getPojoClassName()}Dao() throws SQLException {
 		this.client = DalClientFactory.getClient(DATA_BASE);
 		this.mapper = new DalDefaultJpaMapper(${host.getPojoClassName()}.class);

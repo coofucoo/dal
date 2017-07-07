@@ -6,12 +6,11 @@ import java.util.Map;
 
 import com.ctrip.platform.dal.common.enums.DatabaseCategory;
 import com.ctrip.platform.dal.dao.client.DalWatcher;
-import com.ctrip.platform.dal.dao.helper.DalObjectRowMapper;
+import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
 import com.ctrip.platform.dal.dao.sqlbuilder.BaseTableSelectBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.DeleteSqlBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.FreeUpdateSqlBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.InsertSqlBuilder;
-import com.ctrip.platform.dal.dao.sqlbuilder.SelectBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.SqlBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.TableSelectBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.TableSqlBuilder;
@@ -57,6 +56,18 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 			
 	public DalTableDao(DalParser<T> parser) {
 		this(parser, DalClientFactory.getTaskFactory());
+	}
+	
+	public DalTableDao(Class<T> entityType) throws SQLException {
+		this(new DalDefaultJpaParser<>(entityType));
+	}
+	
+	public DalTableDao(Class<T> entityType, String dataBaseName) throws SQLException {
+		this(new DalDefaultJpaParser<>(entityType, dataBaseName));
+	}
+	
+	public DalTableDao(Class<T> entityType, String dataBaseName, String tableName) throws SQLException {
+		this(new DalDefaultJpaParser<>(entityType, dataBaseName, tableName));
 	}
 	
 	public DalTableDao(DalParser<T> parser, DalTaskFactory factory) {
@@ -111,7 +122,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 			throw new DalException(ErrorCode.ValidatePrimaryKeyCount);
 
 		StatementParameters parameters = new StatementParameters();
-		parameters.set(1, getColumnType(parser.getPrimaryKeyNames()[0]), id);
+		parameters.set(1, parser.getPrimaryKeyNames()[0], getColumnType(parser.getPrimaryKeyNames()[0]), id);
 
 		return queryObject(new BaseTableSelectBuilder(rawTableName, dbCategory).where(pkSql).with(parameters).requireSingle().nullable(), hints);
 	}
@@ -196,7 +207,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 	 */
 	public <K> List<K> query(TableSelectBuilder selectBuilder, DalHints hints, Class<K> clazz) throws SQLException {
 		DalWatcher.begin();
-		return commonQuery((TableSelectBuilder)selectBuilder.mapWith(new DalObjectRowMapper<K>()).nullable(), hints);
+		return commonQuery((TableSelectBuilder)selectBuilder.mapWith(clazz).nullable(), hints);
 	}
 
 	/**
@@ -216,7 +227,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 	}
 
 	/**
-	 * Query pojo for the given query builder. The requireSingle or requireFirst MUST be set on bulder.
+	 * Query pojo for the given query builder. The requireSingle or requireFirst MUST be set on builder.
 	 * @param selectBuilder select builder which represents the query criteria
 	 * @param hints Additional parameters that instruct how DAL Client perform database operation.
 	 * @return
@@ -228,7 +239,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 	}
 	
 	/**
-	 * Query object for the given type for the given query builder. The requireSingle or requireFirst MUST be set on bulder.
+	 * Query object for the given type for the given query builder. The requireSingle or requireFirst MUST be set on builder.
 	 * @param selectBuilder select builder which represents the query criteria
 	 * @param hints Additional parameters that instruct how DAL Client perform database operation.
 	 * @param clazz the class which the returned result belongs to.
@@ -237,7 +248,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
 	 */
 	public <K> K queryObject(TableSelectBuilder selectBuilder, DalHints hints, Class<K> clazz) throws SQLException {
 		DalWatcher.begin();
-		return commonQuery((TableSelectBuilder)selectBuilder.mapWith(new DalObjectRowMapper<K>()), hints);
+		return commonQuery((TableSelectBuilder)selectBuilder.mapWith(clazz), hints);
 	}
 
 	public Number count(String whereClause, StatementParameters parameters, DalHints hints) throws SQLException {

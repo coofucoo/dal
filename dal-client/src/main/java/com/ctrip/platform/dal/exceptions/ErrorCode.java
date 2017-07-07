@@ -1,5 +1,7 @@
 package com.ctrip.platform.dal.exceptions;
 
+import com.ctrip.platform.dal.dao.DalHintEnum;
+
 public enum ErrorCode {
 	/**
 	 * It is expected to return only %s result. But the actually count is %s
@@ -17,14 +19,19 @@ public enum ErrorCode {
 	AssertSingle(ErrorClassify.Assert, 5002, "It is expected to return only 1 result. But the actually count is more than 1"),
 	
 	/**
-	 * It is expected to return only 1 or no result. But the actually count is more than 1.
+	 * It is expected to return 1 result. But found none
 	 */
 	AssertNull(ErrorClassify.Assert, 5003, "It is expected to return 1 result. But found none"),
 	
 	/**
-	 * It is expected to return only 1 or no result. But the actually count is more than 1.
+	 * The requested operation is not supported.
 	 */
 	NotSupported(ErrorClassify.Assert, 5004, "The requested operation is not supported"),
+
+	/**
+	 * The requested operation is not supported.
+	 */
+	MoreThanOneVersionColumn(ErrorClassify.Assert, 5005, "The entity contains more than one version annotation"),
 
 	/**
 	 * The primary key of this table is consists of more than one column
@@ -57,6 +64,11 @@ public enum ErrorCode {
 	KeyGenerationFailOrNotCompleted(ErrorClassify.Validate, 5105, "The insertion is fail or not completed yet."),
 	
 	/**
+	 * The insertion is fail or not completed yet.
+	 */
+	FieldNotExists(ErrorClassify.Validate, 5106, "There is no field defined in pojo %s for column %s. Please check with DalHintEnum.ignoreMissingFields"),
+	
+	/**
 	 * Sql cannot be null
 	 */
 	ValidateSql(ErrorClassify.Validate, 5200, "The given sql is null"),
@@ -75,6 +87,26 @@ public enum ErrorCode {
 	 * Task cannot be null
 	 */
 	ValidateTask(ErrorClassify.Validate, 5203, "The given dao task is null. Means the calling DAO method is not supported. Please contact your DAL team."),
+	
+	/**
+	 * Version column is null
+	 */
+	ValidateVersion(ErrorClassify.Validate, 5204, "Version column can not be null"),
+	
+	/**
+	 * Column type is not defined
+	 */
+	TypeNotDefined(ErrorClassify.Validate, 5206, "Column type is not defined"),
+	
+	/**
+	 * Duplicated column name is found
+	 */
+	DuplicateColumnName(ErrorClassify.Validate, 5207, "Column name is already used by other field"),
+	
+	/**
+	 * No Database annotation found.
+	 */
+	NoDatabaseDefined(ErrorClassify.Validate, 5208, "The entity must configure Database annotation."),
 	
 	/**
 	 * Can not locate shard for %s
@@ -112,6 +144,16 @@ public enum ErrorCode {
 	TransactionEnd(ErrorClassify.Transaction, 5603, "Calling endTransaction with empty ConnectionCache"),
 	
 	/**
+	 * Calling endTransaction with empty ConnectionCache
+	 */
+	TransactionNoFound(ErrorClassify.Transaction, 5604, "There is no transaction found"),
+	
+    /**
+     * The result mapping is faild.
+     */
+    ResultMappingError(ErrorClassify.Extract, 5700, "Can not extract from result set. If the columns in result set does not match with columns in pojo, please check with DalHintEnum.partialQuery."),
+    
+	/**
 	 * Can not get connection from DB %s
 	 */
 	CantGetConnection(ErrorClassify.Connection, 5300, "Can not get connection from DB %s"),
@@ -127,9 +169,11 @@ public enum ErrorCode {
 	/**
 	 * Logic Db Name is empty!
 	 */
-	LogicDbEmpty(ErrorClassify.Connection, 5301, "Logic Db Name is empty!"),
+	LogicDbEmpty(ErrorClassify.Connection, 5305, "Logic Db Name is empty!"),
 	
-	Unknown(ErrorClassify.Unknown, 9999 , "Unknown Exception");
+	InvalidDatabaseKeyName(ErrorClassify.Connection, 5306, "The given database key name is not qualified: %s"),
+	
+	Unknown(ErrorClassify.Unknown, 9999 , "Unknown Exception, caused by: %s");
 	
 	private final ErrorClassify classify;
 	private final int code;

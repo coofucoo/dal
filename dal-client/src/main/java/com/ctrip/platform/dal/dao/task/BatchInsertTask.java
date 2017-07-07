@@ -1,7 +1,9 @@
 package com.ctrip.platform.dal.dao.task;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.StatementParameters;
@@ -15,37 +17,42 @@ public class BatchInsertTask<T> extends InsertTaskAdapter<T> implements BulkTask
 	}	
 
 	@Override
-	public int[] execute(DalHints hints, Map<Integer, Map<String, ?>> daoPojos) throws SQLException {
+	public BulkTaskContext<T> createTaskContext(DalHints hints, List<Map<String, ?>> daoPojos, List<T> rawPojos) {
+		BulkTaskContext<T> context = new BulkTaskContext<T>(rawPojos);
+		Set<String> unqualifiedColumns = filterUnqualifiedColumns(hints, daoPojos, rawPojos);
+		context.setUnqualifiedColumns(unqualifiedColumns);
+		return context;
+	}
+
+	@Override
+	public int[] execute(DalHints hints, Map<Integer, Map<String, ?>> daoPojos, BulkTaskContext<T> taskContext) throws SQLException {
 		StatementParameters[] parametersList = new StatementParameters[daoPojos.size()];
 		int i = 0;
+		
+		Set<String> unqualifiedColumns = taskContext.getUnqualifiedColumns();
 		
 		for (Integer index :daoPojos.keySet()) {
 			Map<String, ?> pojo = daoPojos.get(index);
 			
-			if(hints.isIdentityInsertDisabled())
-				removeAutoIncrementPrimaryFields(pojo);
+			removeUnqualifiedColumns(pojo, unqualifiedColumns);
 			
 			StatementParameters parameters = new StatementParameters();
 			addParameters(parameters, pojo);
 			parametersList[i++] = parameters;
 		}
 
-		String batchInsertSql = buildBatchInsertSql(getTableName(hints), hints);
+		String batchInsertSql = buildBatchInsertSql(hints, unqualifiedColumns);
 		int[] result = client.batchUpdate(batchInsertSql, parametersList, hints);
 		return result;
 	}
-
-	private String buildBatchInsertSql(String tableName, DalHints hints) {
-		int validColumnsSize = parser.getColumnNames().length;
-		if(parser.isAutoIncrement() && hints.isIdentityInsertDisabled())
-			validColumnsSize--;
+	
+	private String buildBatchInsertSql(DalHints hints, Set<String> unqualifiedColumns) throws SQLException {
+		List<String> finalInsertableColumns = buildValidColumnsForInsert(unqualifiedColumns);
 		
-		String values = combine(PLACE_HOLDER, validColumnsSize,
-				COLUMN_SEPARATOR);
-
-		String insertColumns = hints.isIdentityInsertDisabled() ? columnsForInsert: columnsForInsertWithId;
-		return String.format(TMPL_SQL_INSERT, tableName, insertColumns,
-				values);
+		String values = combine(PLACE_HOLDER, finalInsertableColumns.size(), COLUMN_SEPARATOR);
+		String insertColumns = combineColumns(finalInsertableColumns, COLUMN_SEPARATOR);
+		
+		return String.format(TMPL_SQL_INSERT, getTableName(hints), insertColumns, values);
 	}
 	
 	@Override

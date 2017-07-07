@@ -2,20 +2,21 @@ package com.ctrip.platform.dal.daogen.utils;
 
 import com.ctrip.platform.dal.daogen.entity.DalGroupDB;
 import com.ctrip.platform.dal.daogen.enums.DatabaseType;
-import org.apache.log4j.Logger;
+import com.ctrip.platform.dal.daogen.log.LoggerManager;
 
 import java.io.*;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static oracle.net.aso.C01.e;
+
 public class AllInOneConfigParser {
 
-    private static final Logger log = Logger.getLogger(AllInOneConfigParser.class);
     private static final Pattern dbLinePattern = Pattern.compile(" name=\"([^\"]+)\" connectionString=\"([^\"]+)\"");
-    private static final Pattern dburlPattern = Pattern.compile("(data\\ssource|server|address|addr|network)=([^;]+)", 2);
+    private static final Pattern dburlPattern =
+            Pattern.compile("(data\\ssource|server|address|addr|network)=([^;]+)", 2);
     private static final Pattern dbuserPattern = Pattern.compile("(uid|user\\sid)=([^;]+)", 2);
     private static final Pattern dbpasswdPattern = Pattern.compile("(password|pwd)=([^;]+)", 2);
     private static final Pattern dbnamePattern = Pattern.compile("(database|initial\\scatalog)=([^;]+)", 2);
@@ -24,7 +25,7 @@ public class AllInOneConfigParser {
     private static final Pattern dbportPattern = Pattern.compile("(port)=([^;]+)", 2);
     private ConcurrentHashMap<String, DalGroupDB> allDbs = new ConcurrentHashMap<>();
 
-    public AllInOneConfigParser(String configFilePath) {
+    public AllInOneConfigParser(String configFilePath) throws Exception {
         BufferedReader br = null;
         try {
             if (null != configFilePath && new File(configFilePath).exists()) {
@@ -45,21 +46,19 @@ public class AllInOneConfigParser {
                         this.allDbs.put(dbLogicName, db);
                     }
                     line = br.readLine();
-                } catch (Exception ex) {
-                    log.error("parse all in one error: " + line, ex);
+                } catch (Throwable e) {
+                    throw e;
                 }
             }
             return;
-        } catch (IOException e) {
-            log.error("Read db config file error, msg:" + e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Init db config props error, msg:" + e.getMessage(), e);
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
         } finally {
             if (br != null) {
                 try {
                     br.close();
                 } catch (IOException e) {
-                    log.error("close DB config file IO error", e);
                 }
             }
         }
@@ -106,19 +105,10 @@ public class AllInOneConfigParser {
             if (matcher.find()) {
                 db.setDb_password(matcher.group(2));
             }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
+        } catch (Throwable e) {
+            throw e;
         }
         return db;
-    }
-
-    public static void main(String[] args) {
-        Configuration.addResource("conf.properties");
-        Map<String, DalGroupDB> allDbs = new AllInOneConfigParser(Configuration.get("all_in_one")).getDBAllInOneConfig();
-        Set<String> keys = allDbs.keySet();
-        for (String key : keys) {
-            System.out.println(allDbs.get(key));
-        }
     }
 
 }

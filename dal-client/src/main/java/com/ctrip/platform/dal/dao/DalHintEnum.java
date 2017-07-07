@@ -49,8 +49,15 @@ public enum DalHintEnum {
 	 */
 	parameters,
 	
+	/**
+	 * Explicitly indicate in which database the operation will be performed.
+	 * This is because a logic Db can include multiple physical  Db. So sometimes we need to select the certain Db
+	 * Value should be String
+	 */
+	designatedDatabase,
+	
 	/*
-	 * Explicitly indicate which shard the operation will be performed.
+	 * Explicitly indicate in which shard the operation will be performed.
 	 * Value should be String
 	 */
 	shard,
@@ -124,7 +131,10 @@ public enum DalHintEnum {
 	 */
 	skipResultsProcessing,
 	
-//	skipUndeclaredResults,
+	/*
+	 * Auto processing all result set and update count
+	 */
+	retrieveAllSpResults,
 	
 	/* 
 	 * Parameter for statement.setMaxRows(maxRows); 
@@ -161,9 +171,19 @@ public enum DalHintEnum {
 	isolationLevel,
 	
 	/*
+	 * used in DalTableDao, when set the insert field can be null value.
+	 */
+	insertNullField,
+	
+	/*
 	 * used in DalTableDao, when set the update field can be null value.
 	 */
 	updateNullField,
+	
+	/*
+	 * used in DalTableDao, when set the update field can be unchanged value after select from DB.
+	 */
+	updateUnchangedField,
 	
 	/**
 	 * Indicate the cud operation will async execute
@@ -191,7 +211,29 @@ public enum DalHintEnum {
 	enableIdentityInsert,
 	
 	/**
-	 * cloumn names that will be excluded for CUD
+	 * Columns that will be excluded for update
 	 */
 	excludedColumns,
+	
+	/**
+	 * Columns that will be included for update
+	 */
+	includedColumns,
+	
+	/**
+	 * If it is OK to allow some column not defined in pojo
+	 */
+	ignoreMissingFields,
+	
+	/**
+	 * Columns that will be included for query
+	 */
+	partialQuery,
+	
+	/**
+     * Allow columns in result set do not match columns declared in entity.
+     * It will populate the common set of columns from result set and entity columns.
+     * It request extractor or mapper to be HintsAwareExtractor or HintsAareMapper to do the required work
+     */
+    allowPartial,
 }

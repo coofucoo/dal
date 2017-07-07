@@ -1,41 +1,56 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
-public class DalApi implements Comparable<DalApi> {
-    private int id;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.sql.Types;
+
+@Entity
+@Database(name = "dao")
+@Table(name = "api_list")
+public class DalApi implements Comparable<DalApi>, DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "language")
+    @Type(value = Types.VARCHAR)
     private String language;
+
+    @Column(name = "db_type")
+    @Type(value = Types.VARCHAR)
     private String db_type;
+
+    @Column(name = "crud_type")
+    @Type(value = Types.VARCHAR)
     private String crud_type;
+
+    @Column(name = "method_declaration")
+    @Type(value = Types.VARCHAR)
     private String method_declaration;
+
+    @Column(name = "method_description")
+    @Type(value = Types.LONGVARCHAR)
     private String method_description;
+
+    @Column(name = "sp_type")
+    @Type(value = Types.VARCHAR)
     private String sp_type;
 
-    public static DalApi visitRow(ResultSet rs) throws SQLException {
-        DalApi api = new DalApi();
-        api.setId(rs.getInt("id"));
-        api.setLanguage(rs.getString("language"));
-        api.setDb_type(rs.getString("db_type"));
-        api.setCrud_type(rs.getString("crud_type"));
-        api.setMethod_declaration(rs.getString("method_declaration"));
-        api.setMethod_description(rs.getString("method_description"));
-        api.setSp_type(rs.getString("sp_type"));
-        return api;
-    }
-
-    @Override
-    public int compareTo(DalApi api) {
-        String str1 = this.language + this.db_type + this.crud_type + this.method_declaration + this.method_description + this.sp_type;
-        String str2 = api.getLanguage() + api.getDb_type() + api.getCrud_type() + api.getMethod_declaration() + api.getMethod_description() + api.getSp_type();
-        return str1.compareTo(str2);
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -87,4 +102,11 @@ public class DalApi implements Comparable<DalApi> {
         this.sp_type = sp_type;
     }
 
+    @Override
+    public int compareTo(DalApi api) {
+        String str1 = language + db_type + crud_type + method_declaration + method_description + sp_type;
+        String str2 = api.getLanguage() + api.getDb_type() + api.getCrud_type() + api.getMethod_declaration()
+                + api.getMethod_description() + api.getSp_type();
+        return str1.compareTo(str2);
+    }
 }

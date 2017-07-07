@@ -29,6 +29,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 	 * Key used to declared columns for locating DB shard.
 	 */
 	public static final String COLUMNS = "columns";
+	private static final String COLUMNS_CSHARP = "column";
 
 	/**
 	 * Key used to declared mod for locating DB shard.
@@ -44,6 +45,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 	 * Key used to declared columns for locating table shard.
 	 */
 	public static final String TABLE_COLUMNS = "tableColumns";
+	private static final String TABLE_COLUMNS_CSHARP = "tableColumn";
 	
 	/**
 	 * Key used to declared mod for locating table shard.
@@ -67,6 +69,10 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 	public void initialize(Map<String, String> settings) {
 		if(settings.containsKey(COLUMNS)) {
 			columns = settings.get(COLUMNS).split(",");
+		}else {
+		    if(settings.containsKey(COLUMNS_CSHARP)) {
+	            columns = settings.get(COLUMNS_CSHARP).split(",");
+	        }
 		}
 		
 		if(settings.containsKey(MOD)) {
@@ -81,6 +87,10 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		
 		if(settings.containsKey(TABLE_COLUMNS)) {
 			tableColumns = settings.get(TABLE_COLUMNS).split(",");
+		}else {
+		    if(settings.containsKey(TABLE_COLUMNS_CSHARP)) {
+	            tableColumns = settings.get(TABLE_COLUMNS_CSHARP).split(",");
+		    }
 		}
 		
 		if(settings.containsKey(TABLE_MOD)) {
@@ -108,7 +118,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		
 		// Shard value take the highest priority
 		if(hints.is(DalHintEnum.shardValue)) {
-			Integer id = getIntValue(hints.get(DalHintEnum.shardValue));
+			Long id = getLongValue(hints.get(DalHintEnum.shardValue));
 			return String.valueOf(id%mod);
 		}
 		
@@ -144,7 +154,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		
 		// Shard value take the highest priority
 		if(hints.is(DalHintEnum.tableShardValue)) {
-			Integer id = getIntValue(hints.get(DalHintEnum.tableShardValue));
+			Long id = getLongValue(hints.get(DalHintEnum.tableShardValue));
 			return String.valueOf(id%tableMod);
 		}
 		
@@ -169,7 +179,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 			for(String column: columns) {
 				StatementParameter param = parameters.get(column, ParameterDirection.Input);
 				if(param != null && param.getValue() != null) {
-					Integer id = getIntValue(param.getValue());
+					Long id = getLongValue(param.getValue());
 					if(id != null) {
 						return String.valueOf(id%mod);
 					}
@@ -184,7 +194,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		
 		if(shardColValues != null) {
 			for(String column: columns) {
-				Integer id = getIntValue(shardColValues.get(column));
+				Long  id = getLongValue(shardColValues.get(column));
 				if(id != null) {
 					return String.valueOf(id%mod);
 				}
@@ -198,7 +208,7 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		
 		if(shardColValues != null) {
 			for(String column: columns) {
-				Integer id = getIntValue(shardColValues.get(column));
+				Long id = getLongValue(shardColValues.get(column));
 				if(id != null) {
 					return String.valueOf(id%mod);
 				}
@@ -207,18 +217,18 @@ public class ShardColModShardStrategy extends AbstractRWSeparationStrategy imple
 		return null;
 	}
 	
-	private Integer getIntValue(Object value) {
+	private Long getLongValue(Object value) {
 		if(value == null)
 			return null;
 		
-		if(value instanceof Integer)
-			return (Integer)value;
+		if(value instanceof Long)
+			return (Long)value;
 		
 		if(value instanceof Number)
-			return ((Number)value).intValue();
+			return ((Number)value).longValue();
 		
 		if(value instanceof String)
-			return new Integer((String)value);
+			return new Long((String)value);
 		
 		throw new RuntimeException(String.format("Shard value: %s can not be recoganized as int value", value.toString()));
 	}

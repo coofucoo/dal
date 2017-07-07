@@ -1,5 +1,6 @@
 package com.ctrip.platform.dal.daogen.resource;
 
+import com.ctrip.platform.dal.daogen.log.LoggerManager;
 import com.ctrip.platform.dal.daogen.utils.Configuration;
 import com.ctrip.platform.dal.daogen.domain.Status;
 import com.ctrip.platform.dal.daogen.entity.Config;
@@ -7,12 +8,13 @@ import com.ctrip.platform.dal.daogen.entity.ConfigTemplate;
 import com.ctrip.platform.dal.daogen.entity.Language;
 import com.ctrip.platform.dal.daogen.enums.ConfigType;
 import com.ctrip.platform.dal.daogen.enums.LanguageType;
-import com.ctrip.platform.dal.daogen.utils.SpringBeanGetter;
+import com.ctrip.platform.dal.daogen.utils.BeanGetter;
 
 import javax.annotation.Resource;
 import javax.inject.Singleton;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -37,58 +39,61 @@ public class ConfigTemplateResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("getAllConfigTemplates")
     public List<ConfigTemplate> getAllConfigTemplates() throws Exception {
-        List<ConfigTemplate> configTemplates = SpringBeanGetter.getConfigTemplateDao().getAllConfigTemplates();
-        return configTemplates;
+        try {
+            List<ConfigTemplate> configTemplates = BeanGetter.getConfigTemplateDao().getAllConfigTemplates();
+            return configTemplates;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
+        }
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("getConfigTemplateById")
-    public ConfigTemplate getConfigTemplateById(@QueryParam("id") String id) {
+    public ConfigTemplate getConfigTemplateById(@QueryParam("id") String id) throws SQLException {
         int templateId = -1;
         try {
             templateId = Integer.parseInt(id);
-        } catch (NumberFormatException ex) {
-            return null;
+            ConfigTemplate configTemplate = BeanGetter.getConfigTemplateDao().getConfigTemplateById(templateId);
+            return configTemplate;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
         }
-
-        ConfigTemplate configTemplate = SpringBeanGetter.getConfigTemplateDao().getConfigTemplateById(templateId);
-        return configTemplate;
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("getConfigTemplateByConditions")
-    public ConfigTemplate getConfigTemplateByConditions(@QueryParam("configType") String configType, @QueryParam("langType") String langType) {
+    public ConfigTemplate getConfigTemplateByConditions(@QueryParam("configType") String configType,
+            @QueryParam("langType") String langType) throws SQLException {
         ConfigTemplate configTemplate = null;
-        if (configType == null || langType == null) {
+        if (configType == null || langType == null)
             return configTemplate;
-        }
 
-        int config_type = -1;
         try {
+            int config_type = -1;
             config_type = Integer.parseInt(configType);
-        } catch (NumberFormatException e) {
-            return configTemplate;
-        }
 
-        int lang_type = -1;
-        try {
+            int lang_type = -1;
             lang_type = Integer.parseInt(langType);
-        } catch (NumberFormatException e) {
-            return configTemplate;
-        }
 
-        ConfigTemplate temp = new ConfigTemplate();
-        temp.setConfig_type(config_type);
-        temp.setLang_type(lang_type);
-        configTemplate = SpringBeanGetter.getConfigTemplateDao().getConfigTemplateByConditions(temp);
-        return configTemplate;
+            ConfigTemplate temp = new ConfigTemplate();
+            temp.setConfig_type(config_type);
+            temp.setLang_type(lang_type);
+            configTemplate = BeanGetter.getConfigTemplateDao().getConfigTemplateByConditions(temp);
+            return configTemplate;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
+        }
     }
 
     @POST
     @Path("addConfigTemplate")
-    public Status addConfigTemplate(@FormParam("configType") String configType, @FormParam("langType") String langType, @FormParam("template") String template) {
+    public Status addConfigTemplate(@FormParam("configType") String configType, @FormParam("langType") String langType,
+            @FormParam("template") String template) {
         Status status = Status.OK;
         if (configType == null || langType == null || template == null) {
             status = Status.ERROR;
@@ -96,35 +101,31 @@ public class ConfigTemplateResource {
             return status;
         }
 
-        int config_type = -1;
         try {
+            int config_type = -1;
             config_type = Integer.parseInt(configType);
-        } catch (NumberFormatException e) {
-            status = Status.ERROR;
-            status.setInfo("Invalid config type.");
-            return status;
-        }
 
-        int lang_type = -1;
-        try {
+            int lang_type = -1;
             lang_type = Integer.parseInt(langType);
-        } catch (NumberFormatException e) {
+
+            ConfigTemplate configTemplate = new ConfigTemplate();
+            configTemplate.setConfig_type(config_type);
+            configTemplate.setLang_type(lang_type);
+            configTemplate.setTemplate(template);
+            BeanGetter.getConfigTemplateDao().insertConfigTemplate(configTemplate);
+            return status;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
             status = Status.ERROR;
-            status.setInfo("Invalid lang type.");
+            status.setInfo(e.getMessage());
             return status;
         }
-
-        ConfigTemplate configTemplate = new ConfigTemplate();
-        configTemplate.setConfig_type(config_type);
-        configTemplate.setLang_type(lang_type);
-        configTemplate.setTemplate(template);
-        SpringBeanGetter.getConfigTemplateDao().insertConfigTemplate(configTemplate);
-        return status;
     }
 
     @POST
     @Path("updateConfigTemplate")
-    public Status updateConfigTemplate(@FormParam("id") String id, @FormParam("configType") String configType, @FormParam("langType") String langType, @FormParam("template") String template) {
+    public Status updateConfigTemplate(@FormParam("id") String id, @FormParam("configType") String configType,
+            @FormParam("langType") String langType, @FormParam("template") String template) {
         Status status = Status.OK;
         if (id == null || configType == null || langType == null || template == null) {
             status = Status.ERROR;
@@ -132,40 +133,29 @@ public class ConfigTemplateResource {
             return status;
         }
 
-        int templateId = -1;
         try {
+            int templateId = -1;
             templateId = Integer.parseInt(id);
-        } catch (NumberFormatException e) {
-            status = Status.ERROR;
-            status.setInfo("Invalid id.");
-            return status;
-        }
 
-        int config_type = -1;
-        try {
+            int config_type = -1;
             config_type = Integer.parseInt(configType);
-        } catch (NumberFormatException e) {
-            status = Status.ERROR;
-            status.setInfo("Invalid config type.");
-            return status;
-        }
 
-        int lang_type = -1;
-        try {
+            int lang_type = -1;
             lang_type = Integer.parseInt(langType);
-        } catch (NumberFormatException e) {
+
+            ConfigTemplate configTemplate = new ConfigTemplate();
+            configTemplate.setId(templateId);
+            configTemplate.setConfig_type(config_type);
+            configTemplate.setLang_type(lang_type);
+            configTemplate.setTemplate(template);
+            BeanGetter.getConfigTemplateDao().updateConfigTemplate(configTemplate);
+            return status;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
             status = Status.ERROR;
-            status.setInfo("Invalid lang type.");
+            status.setInfo(e.getMessage());
             return status;
         }
-
-        ConfigTemplate configTemplate = new ConfigTemplate();
-        configTemplate.setId(templateId);
-        configTemplate.setConfig_type(config_type);
-        configTemplate.setLang_type(lang_type);
-        configTemplate.setTemplate(template);
-        SpringBeanGetter.getConfigTemplateDao().updateConfigTemplate(configTemplate);
-        return status;
     }
 
     @POST
@@ -178,28 +168,29 @@ public class ConfigTemplateResource {
             return status;
         }
 
-        int templateId = -1;
         try {
+            int templateId = -1;
             templateId = Integer.parseInt(id);
-        } catch (NumberFormatException e) {
+
+            ConfigTemplate configTemplate = new ConfigTemplate();
+            configTemplate.setId(templateId);
+            BeanGetter.getConfigTemplateDao().deleteConfigTemplate(configTemplate);
+            return status;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
             status = Status.ERROR;
-            status.setInfo("Invalid id.");
+            status.setInfo(e.getMessage());
             return status;
         }
-
-        ConfigTemplate configTemplate = new ConfigTemplate();
-        configTemplate.setId(templateId);
-        SpringBeanGetter.getConfigTemplateDao().deleteConfigTemplate(configTemplate);
-        return status;
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("getConfigList")
     public List<Config> getConfigList() {
-        if (configList == null) {
+        if (configList == null)
             configList = getConfigs();
-        }
+
         return configList;
     }
 
@@ -225,9 +216,9 @@ public class ConfigTemplateResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("getLanguageList")
     public List<Language> getLanguageList() {
-        if (languageList == null) {
+        if (languageList == null)
             languageList = getLanguages();
-        }
+
         return languageList;
     }
 

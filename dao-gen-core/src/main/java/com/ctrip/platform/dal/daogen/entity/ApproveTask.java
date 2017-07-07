@@ -1,51 +1,60 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
-public class ApproveTask {
-    private int id;
-    private int task_id;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Table;
+import java.sql.Timestamp;
+import java.sql.Types;
+
+@Entity
+@Database(name = "dao")
+@Table(name = "approve_task")
+public class ApproveTask implements DalPojo {
+    @Column(name = "id")
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "task_id")
+    @Type(value = Types.INTEGER)
+    private Integer task_id;
+
+    @Column(name = "task_type")
+    @Type(value = Types.VARCHAR)
     private String task_type;
+
+    @Column(name = "create_time")
+    @Type(value = Types.TIMESTAMP)
     private Timestamp create_time;
-    private int create_user_id;
-    private int approve_user_id;
+
+    @Column(name = "create_user_id")
+    @Type(value = Types.INTEGER)
+    private Integer create_user_id;
+
+    @Column(name = "approve_user_id")
+    @Type(value = Types.INTEGER)
+    private Integer approve_user_id;
 
     private String str_create_time;
+
     private String create_user_name;
 
-    public static ApproveTask visitRow(ResultSet rs) throws SQLException {
-        ApproveTask task = new ApproveTask();
-        task.setId(rs.getInt("id"));
-        task.setTask_id(rs.getInt("task_id"));
-        task.setTask_type(rs.getString("task_type"));
-        task.setCreate_time(rs.getTimestamp("create_time"));
-        task.setCreate_user_id(rs.getInt("create_user_id"));
-        task.setApprove_user_id(rs.getInt("approve_user_id"));
-        try {
-            Date date = new Date(task.getCreate_time().getTime());
-            task.setStr_create_time(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date));
-        } catch (Throwable e) {
-        }
-        return task;
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
-    public int getTask_id() {
+    public Integer getTask_id() {
         return task_id;
     }
 
-    public void setTask_id(int task_id) {
+    public void setTask_id(Integer task_id) {
         this.task_id = task_id;
     }
 
@@ -65,19 +74,19 @@ public class ApproveTask {
         this.create_time = create_time;
     }
 
-    public int getCreate_user_id() {
+    public Integer getCreate_user_id() {
         return create_user_id;
     }
 
-    public void setCreate_user_id(int create_user_id) {
+    public void setCreate_user_id(Integer create_user_id) {
         this.create_user_id = create_user_id;
     }
 
-    public int getApprove_user_id() {
+    public Integer getApprove_user_id() {
         return approve_user_id;
     }
 
-    public void setApprove_user_id(int approve_user_id) {
+    public void setApprove_user_id(Integer approve_user_id) {
         this.approve_user_id = approve_user_id;
     }
 

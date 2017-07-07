@@ -1,10 +1,14 @@
 package com.ctrip.platform.dal.daogen.resource;
 
 import com.ctrip.platform.dal.daogen.domain.W2uiElement;
+import com.ctrip.platform.dal.daogen.entity.LoginUser;
 import com.ctrip.platform.dal.daogen.entity.Project;
+import com.ctrip.platform.dal.daogen.entity.UserGroup;
+import com.ctrip.platform.dal.daogen.log.LoggerManager;
 import com.ctrip.platform.dal.daogen.utils.Configuration;
 import com.ctrip.platform.dal.daogen.utils.JavaIOUtils;
-import com.ctrip.platform.dal.daogen.utils.SpringBeanGetter;
+import com.ctrip.platform.dal.daogen.utils.BeanGetter;
+import com.ctrip.platform.dal.daogen.utils.RequestUtil;
 import com.ctrip.platform.dal.daogen.utils.ZipFolder;
 import com.google.common.base.Charsets;
 
@@ -39,49 +43,56 @@ public class FileResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<W2uiElement> getFiles(@QueryParam("id") String id, @QueryParam("language") String language, @QueryParam("name") String name) {
-        List<W2uiElement> files = new ArrayList<>();
+    public List<W2uiElement> getFiles(@QueryParam("id") String id, @QueryParam("language") String language,
+            @QueryParam("name") String name) {
+        try {
+            List<W2uiElement> files = new ArrayList<>();
 
-        File currentProjectDir = new File(new File(generatePath, id), language);
-        if (currentProjectDir.exists()) {
-            File currentFile = null;
-            if (null == name || name.isEmpty()) {
-                currentFile = currentProjectDir;
-            } else {
-                currentFile = new File(currentProjectDir, name);
-            }
-            for (File f : currentFile.listFiles()) {
-                W2uiElement element = new W2uiElement();
+            File currentProjectDir = new File(new File(generatePath, id), language);
+            if (currentProjectDir.exists()) {
+                File currentFile = null;
                 if (null == name || name.isEmpty()) {
-                    element.setId(String.format("%s_%d", id, files.size()));
+                    currentFile = currentProjectDir;
                 } else {
-                    element.setId(String.format("%s_%s_%d", id, name.replace("\\", ""), files.size()));
+                    currentFile = new File(currentProjectDir, name);
                 }
-                if (null == name || name.isEmpty()) {
-                    element.setData(f.getName());
-                } else {
-                    element.setData(name + File.separator + f.getName());
+                for (File f : currentFile.listFiles()) {
+                    W2uiElement element = new W2uiElement();
+                    if (null == name || name.isEmpty()) {
+                        element.setId(String.format("%s_%d", id, files.size()));
+                    } else {
+                        element.setId(String.format("%s_%s_%d", id, name.replace("\\", ""), files.size()));
+                    }
+                    if (null == name || name.isEmpty()) {
+                        element.setData(f.getName());
+                    } else {
+                        element.setData(name + File.separator + f.getName());
+                    }
+                    element.setText(f.getName());
+                    element.setChildren(f.isDirectory());
+                    if (element.isChildren()) {
+                        element.setType("folder");
+                        element.setIcon("glyphicon glyphicon-folder-open");
+                    } else {
+                        element.setType("file");
+                        element.setIcon("glyphicon glyphicon-file");
+                    }
+                    files.add(element);
                 }
-                element.setText(f.getName());
-                element.setChildren(f.isDirectory());
-                if (element.isChildren()) {
-                    element.setType("folder");
-                    element.setIcon("glyphicon glyphicon-folder-open");
-                } else {
-                    element.setType("file");
-                    element.setIcon("glyphicon glyphicon-file");
-                }
-                files.add(element);
             }
+            java.util.Collections.sort(files);
+            return files;
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
         }
-        java.util.Collections.sort(files);
-        return files;
     }
 
     @GET
     @Path("content")
     @Produces(MediaType.TEXT_PLAIN)
-    public String getFileContent(@QueryParam("id") String id, @QueryParam("language") String language, @QueryParam("name") String name) {
+    public String getFileContent(@QueryParam("id") String id, @QueryParam("language") String language,
+            @QueryParam("name") String name) throws Exception {
         File f = new File(new File(new File(generatePath, id), language), name);
         StringBuilder sb = new StringBuilder();
         if (f.exists()) {
@@ -94,10 +105,9 @@ public class FileResource {
                     sb.append(line);
                     sb.append(System.getProperty("line.separator"));
                 }
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Throwable e) {
+                LoggerManager.getInstance().error(e);
+                throw e;
             } finally {
                 if (null != reader) {
                     try {
@@ -115,7 +125,8 @@ public class FileResource {
     @GET
     @Path("download")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public String download(@QueryParam("id") String id, @QueryParam("language") String name, @Context HttpServletRequest request, @Context HttpServletResponse response) throws Exception {
+    public String download(@QueryParam("id") String id, @QueryParam("language") String name,
+            @Context HttpServletRequest request, @Context HttpServletResponse response) throws Exception {
         File f = null;
         if (null != name && !name.isEmpty()) {
             f = new File(new File(generatePath, id), name);
@@ -123,10 +134,16 @@ public class FileResource {
             f = new File(generatePath, id);
         }
 
-        Project proj = SpringBeanGetter.getDaoOfProject().getProjectByID(Integer.valueOf(id));
+        Project project = BeanGetter.getDaoOfProject().getProjectByID(Integer.valueOf(id));
+        boolean isValid = validatePermission(request, project.getDal_group_id());
+        if (!isValid) {
+            response.sendError(403, "Forbidden!");
+            return "";
+        }
+
         DateFormat format1 = new SimpleDateFormat("yyyyMMddHHmmss");
         String date = format1.format(new Date());
-        final String zipFileName = proj.getName() + "-" + date + ".zip";
+        final String zipFileName = project.getName() + "-" + date + ".zip";
 
         if (f.isFile()) {
             zipFile(f, zipFileName);
@@ -137,9 +154,7 @@ public class FileResource {
         FileInputStream fis = null;
         BufferedInputStream buff = null;
         OutputStream myout = null;
-
         String path = generatePath + "/" + zipFileName;
-
         File file = new File(path);
 
         try {
@@ -149,7 +164,8 @@ public class FileResource {
             } else {
                 response.setContentType("application/zip;charset=utf-8");
                 response.setContentLength((int) file.length());
-                response.setHeader("Content-Disposition", "attachment;filename=" + new String(file.getName().getBytes(Charsets.UTF_8), "UTF-8"));
+                response.setHeader("Content-Disposition",
+                        "attachment;filename=" + new String(file.getName().getBytes(Charsets.UTF_8), "UTF-8"));
             }
             // response.reset();
             fis = new FileInputStream(file);
@@ -164,8 +180,9 @@ public class FileResource {
                 myout.write(b, 0, j);
             }
             myout.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
         } finally {
             try {
                 if (fis != null) {
@@ -183,7 +200,7 @@ public class FileResource {
         return "";
     }
 
-    private void zipFile(File fileToZip, String zipFileName) {
+    private void zipFile(File fileToZip, String zipFileName) throws Exception {
         byte[] buffer = new byte[1024];
 
         FileInputStream in = null;
@@ -207,6 +224,26 @@ public class FileResource {
             JavaIOUtils.closeInputStream(in);
             JavaIOUtils.closeOutputStream(zos);
         }
+    }
+
+    private boolean validatePermission(HttpServletRequest request, Integer projectGroupId) throws Exception {
+        boolean result = false;
+        LoginUser user = RequestUtil.getUserInfo(request);
+        if (user == null)
+            return result;
+        try {
+            List<UserGroup> userGroups = BeanGetter.getDalUserGroupDao().getUserGroupByUserId(user.getId());
+            if (userGroups == null || userGroups.size() == 0)
+                return result;
+            for (UserGroup group : userGroups) {
+                if (group.getGroup_id().intValue() == projectGroupId.intValue()) {
+                    result |= true;
+                    break;
+                }
+            }
+        } catch (Throwable e) {
+        }
+        return result;
     }
 
 }

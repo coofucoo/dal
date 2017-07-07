@@ -2,6 +2,8 @@ package com.ctrip.platform.dal.dao.sqlbuilder;
 
 import java.sql.SQLException;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import com.ctrip.platform.dal.common.enums.DatabaseCategory;
@@ -11,6 +13,7 @@ import com.ctrip.platform.dal.dao.DalResultSetExtractor;
 import com.ctrip.platform.dal.dao.DalRowMapper;
 import com.ctrip.platform.dal.dao.ResultMerger;
 import com.ctrip.platform.dal.dao.StatementParameters;
+import com.ctrip.platform.dal.dao.helper.CustomizableMapper;
 import com.ctrip.platform.dal.dao.helper.DalFirstResultMerger;
 import com.ctrip.platform.dal.dao.helper.DalListMerger;
 import com.ctrip.platform.dal.dao.helper.DalObjectRowMapper;
@@ -31,21 +34,13 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	private static final String ORDER_BY = "ORDER BY ";
 	private static final String ASC = " ASC";
 	private static final String DESC = " DESC";
+	private static final String ORDER_BY_SEPARATOR = ", ";
 	private static final String QUERY_ALL_CRITERIA = "1=1";
-	
-	private static final String MYSQL_QUERY_TPL= "SELECT %s FROM %s WHERE %s";
-	private static final String SQLSVR_QUERY_TPL= "SELECT %s FROM %s WITH (NOLOCK) WHERE %s";
 	
 	/**
 	 * 对于select first，会在语句中追加limit 0,1(MySQL)或者top 1(SQL Server)：
 	 * @return
 	 */
-	private static final String MYSQL_QUERY_TOP_TPL= "SELECT %s FROM %s WHERE %s LIMIT %d";
-	private static final String SQLSVR_QUERY_TOP_TPL= "SELECT TOP %d %s FROM %s WITH (NOLOCK) WHERE %s";
-	
-	private static final String MYSQL_QUERY_PAGE_TPL= "SELECT %s FROM %s WHERE %s LIMIT %d, %d";
-	private static final String SQLSVR_QUERY_PAGE_TPL= "SELECT %s FROM %s WITH (NOLOCK) WHERE %s OFFSET %d ROWS FETCH NEXT %d ROWS ONLY";
-	
 	private String tableName;
 	private DatabaseCategory dbCategory;
 	
@@ -53,8 +48,7 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	private String customized;
 	
 	private String whereClause;
-	private String orderBy;
-	private boolean ascending;
+	private Map<String, Boolean> orderBys = new LinkedHashMap<>();
 
 	private StatementParameters parameters;
 	private DalRowMapper mapper;
@@ -118,8 +112,7 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	}
 
 	public BaseTableSelectBuilder orderBy(String orderBy, boolean ascending) {
-		this.orderBy = orderBy;
-		this.ascending = ascending;
+		orderBys.put(orderBy, ascending);
 		return this;
 	}
 	
@@ -131,6 +124,10 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	public <T> BaseTableSelectBuilder mapWith(DalRowMapper<T> mapper) {
 		this.mapper = mapper;
 		return this;
+	}
+	
+	public <T> BaseTableSelectBuilder mapWith(Class<T> type) {
+		return mapWith(new DalObjectRowMapper(type));
 	}
 	
 	public BaseTableSelectBuilder simpleType() {
@@ -162,16 +159,23 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	}
 
 	private String getCompleteWhereExp() {
-		return orderBy == null ? whereClause : whereClause + SPACE + buildOrderbyExp();
+		return orderBys.size() == 0 ? whereClause : whereClause + SPACE + buildOrderbyExp();
 	}
 	
 	private String buildOrderbyExp(){
 		StringBuilder orderbyExp = new StringBuilder();
 
 		orderbyExp.append(ORDER_BY);
-		String wrap = wrapField(orderBy);
-		wrap += ascending? ASC: DESC;
-		orderbyExp.append(wrap);
+		boolean first = true;
+		for(String orderBy: orderBys.keySet()) {
+			if(first)
+				first = false;
+			else
+				orderbyExp.append(ORDER_BY_SEPARATOR);
+
+			orderbyExp.append(wrapField(orderBy));
+			orderbyExp.append(orderBys.get(orderBy) ? ASC: DESC);
+		}
 
 		return orderbyExp.toString();
 	}
@@ -210,14 +214,33 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 		return count > 0 ? new DalRangedResultMerger((Comparator)hints.getSorter(), count): new DalListMerger((Comparator)hints.getSorter());
 	}
 
-	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) {
+	public <T> DalResultSetExtractor<T> getResultExtractor(DalHints hints) throws SQLException {
 		if(extractor != null)
 			return extractor;
 		
+		DalRowMapper<T> mapper  = checkAllowPartial(hints);
 		if(isRequireSingle() || isRequireFirst())
 			return new DalSingleResultExtractor<>(mapper, isRequireSingle());
 			
-		return count > 0 ? new DalRowMapperExtractor(mapper, count) : new DalRowMapperExtractor(mapper);
+		return count > 0 ? new DalRowMapperExtractor(mapper, count): new DalRowMapperExtractor(mapper);
+	}
+	
+	private <T> DalRowMapper<T> checkAllowPartial(DalHints hints) throws SQLException {
+		if(!(mapper instanceof CustomizableMapper))
+			return mapper;
+		
+		// If it is COUNT case, we do nothing here
+		if(customized == COUNT)
+			return mapper;
+		
+		if(customized == ALL_COLUMNS)
+			return mapper;
+		
+		if(hints.is(DalHintEnum.partialQuery))
+		    return mapper;
+		
+		// Use what user selected and customize mapper
+		return ((CustomizableMapper)mapper).mapWith(selectedColumns);
 	}
 	
 	private String buildFirst(String effectiveTableName){
@@ -226,20 +249,15 @@ public class BaseTableSelectBuilder implements TableSelectBuilder {
 	}
 	
 	private String buildTop(String effectiveTableName){
-		if(DatabaseCategory.SqlServer == dbCategory)
-			return String.format(SQLSVR_QUERY_TOP_TPL, count, buildColumns(), effectiveTableName, getCompleteWhereExp());
-		else
-			return String.format(MYSQL_QUERY_TOP_TPL, buildColumns(), effectiveTableName, getCompleteWhereExp(), count);
+		return dbCategory.buildTop(effectiveTableName, buildColumns(), getCompleteWhereExp(), count);
 	}
 
 	private String buildPage(String effectiveTableName){
-		String tpl = DatabaseCategory.SqlServer == dbCategory ? SQLSVR_QUERY_PAGE_TPL : MYSQL_QUERY_PAGE_TPL;
-		return String.format(tpl, buildColumns(), effectiveTableName, getCompleteWhereExp(), start, count);
+		return dbCategory.buildPage(effectiveTableName, buildColumns(), getCompleteWhereExp(), start, count);
 	}
 	
 	private String buildList(String effectiveTableName){
-		String tpl = DatabaseCategory.SqlServer == dbCategory ? SQLSVR_QUERY_TPL : MYSQL_QUERY_TPL;
-		return String.format(tpl, buildColumns(), effectiveTableName, getCompleteWhereExp());
+		return dbCategory.buildList(effectiveTableName, buildColumns(), getCompleteWhereExp());
 	}
 	
 	private String buildColumns() {

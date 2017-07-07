@@ -1,26 +1,53 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.sql.Types;
 
-public class Project {
-    private int id;
+@Entity
+@Database(name = "dao")
+@Table(name = "project")
+public class Project implements DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
 
+    @Column(name = "name")
+    @Type(value = Types.VARCHAR)
     private String name;
 
+    @Column(name = "namespace")
+    @Type(value = Types.VARCHAR)
     private String namespace;
 
-    private int dal_group_id;
+    @Column(name = "dal_group_id")
+    @Type(value = Types.INTEGER)
+    private Integer dal_group_id;
 
+    @Column(name = "dal_config_name")
+    @Type(value = Types.VARCHAR)
     private String dal_config_name;
 
+    @Column(name = "update_user_no")
+    @Type(value = Types.VARCHAR)
     private String update_user_no;
 
+    @Column(name = "update_time")
+    @Type(value = Types.TIMESTAMP)
     private Timestamp update_time;
-    private String str_update_time = "";
+
+    private String str_update_time;
 
     private String text;
 
@@ -28,43 +55,13 @@ public class Project {
 
     private boolean children;
 
-
-    public static Project visitRow(ResultSet rs) throws SQLException {
-        Project project = new Project();
-        project.setId(rs.getInt(1));
-        project.setName(rs.getString(2));
-        project.setNamespace(rs.getString(3));
-        project.setDal_group_id(rs.getInt(4));
-        project.setDal_config_name(rs.getString(5));
-        project.setUpdate_user_no(rs.getString(6));
-        project.setUpdate_time(rs.getTimestamp(7));
-        try {
-            Date date = new Date(project.getUpdate_time().getTime());
-            project.setStr_update_time(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date));
-        } catch (Throwable e) {
-        }
-        project.setText(project.getName());
-        project.setChildren(false);
-        project.setIcon("glyphicon glyphicon-tasks");
-        return project;
-    }
-
-    public boolean isChildren() {
-        return children;
-    }
-
-    public void setChildren(boolean children) {
-        this.children = children;
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
-
 
     public String getName() {
         return name;
@@ -82,11 +79,11 @@ public class Project {
         this.namespace = namespace;
     }
 
-    public int getDal_group_id() {
+    public Integer getDal_group_id() {
         return dal_group_id;
     }
 
-    public void setDal_group_id(int dal_group_id) {
+    public void setDal_group_id(Integer dal_group_id) {
         this.dal_group_id = dal_group_id;
     }
 
@@ -96,22 +93,6 @@ public class Project {
 
     public void setDal_config_name(String dal_config_name) {
         this.dal_config_name = dal_config_name;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
     }
 
     public String getUpdate_user_no() {
@@ -136,6 +117,30 @@ public class Project {
 
     public void setStr_update_time(String str_update_time) {
         this.str_update_time = str_update_time;
+    }
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public String getIcon() {
+        return icon;
+    }
+
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
+    public boolean isChildren() {
+        return children;
+    }
+
+    public void setChildren(boolean children) {
+        this.children = children;
     }
 
 }

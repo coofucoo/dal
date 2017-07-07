@@ -9,40 +9,42 @@ import com.ctrip.platform.dal.daogen.entity.ExecuteResult;
 import com.ctrip.platform.dal.daogen.entity.GenTaskBySqlBuilder;
 import com.ctrip.platform.dal.daogen.entity.GenTaskByTableViewSp;
 import com.ctrip.platform.dal.daogen.entity.Progress;
+import com.ctrip.platform.dal.daogen.enums.DatabaseCategory;
 import com.ctrip.platform.dal.daogen.generator.java.JavaCodeGenContext;
 import com.ctrip.platform.dal.daogen.host.AbstractParameterHost;
 import com.ctrip.platform.dal.daogen.host.java.*;
+import com.ctrip.platform.dal.daogen.log.LoggerManager;
 import com.ctrip.platform.dal.daogen.utils.DbUtils;
-import com.ctrip.platform.dal.daogen.utils.SpringBeanGetter;
+import com.ctrip.platform.dal.daogen.utils.BeanGetter;
 import com.ctrip.platform.dal.daogen.utils.TaskUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
 
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.Callable;
 
 public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPreparer implements DalProcessor {
-    private static Logger log = Logger.getLogger(JavaDataPreparerOfTableViewSpProcessor.class);
 
     private static DaoBySqlBuilder daoBySqlBuilder;
     private static DaoByTableViewSp daoByTableViewSp;
 
     static {
-        daoBySqlBuilder = SpringBeanGetter.getDaoBySqlBuilder();
-        daoByTableViewSp = SpringBeanGetter.getDaoByTableViewSp();
+        try {
+            daoBySqlBuilder = BeanGetter.getDaoBySqlBuilder();
+            daoByTableViewSp = BeanGetter.getDaoByTableViewSp();
+        } catch (SQLException e) {
+        }
     }
 
     @Override
     public void process(CodeGenContext context) throws Exception {
-        List<Callable<ExecuteResult>> _tableViewSpCallables;
-
         try {
-            _tableViewSpCallables = prepareTableViewSp(context);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            List<Callable<ExecuteResult>> _tableViewSpCallables = prepareTableViewSp(context);
+            TaskUtils.invokeBatch(_tableViewSpCallables);
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
         }
-
-        TaskUtils.invokeBatch(log, _tableViewSpCallables);
     }
 
     private List<Callable<ExecuteResult>> prepareTableViewSp(CodeGenContext codeGenCtx) throws Exception {
@@ -59,7 +61,8 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         } else {
             tableViewSpTasks = daoByTableViewSp.updateAndGetTasks(projectId);
             sqlBuilderTasks = daoBySqlBuilder.updateAndGetTasks(projectId);
-            prepareDbFromTableViewSp(ctx, daoByTableViewSp.getTasksByProjectId(projectId), daoBySqlBuilder.getTasksByProjectId(projectId));
+            prepareDbFromTableViewSp(ctx, daoByTableViewSp.getTasksByProjectId(projectId),
+                    daoBySqlBuilder.getTasksByProjectId(projectId));
         }
 
         if (!ctx.isIgnoreApproveStatus() && tableViewSpTasks != null && tableViewSpTasks.size() > 0) {
@@ -97,23 +100,35 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
             final String[] tableNames = StringUtils.split(tableViewSp.getTable_names(), ",");
             final String[] spNames = StringUtils.split(tableViewSp.getSp_names(), ",");
 
-            results.addAll(prepareTable(ctx, progress, _tableHosts, tableViewSp, tableNames));
-            results.addAll(prepareView(ctx, progress, _viewHosts, tableViewSp, viewNames));
+            final DatabaseCategory dbCategory;
+            String dbType = DbUtils.getDbType(tableViewSp.getAllInOneName());
+            if (null != dbType && !dbType.equalsIgnoreCase("Microsoft SQL Server")) {
+                dbCategory = DatabaseCategory.MySql;
+            } else {
+                dbCategory = DatabaseCategory.SqlServer;
+            }
+
+            results.addAll(prepareTable(ctx, progress, _tableHosts, tableViewSp, tableNames, dbCategory));
+            results.addAll(prepareView(ctx, progress, _viewHosts, tableViewSp, viewNames, dbCategory));
             results.addAll(prepareSp(ctx, progress, _spHosts, _spHostMaps, tableViewSp, spNames));
         }
 
         return results;
     }
 
-    private List<Callable<ExecuteResult>> prepareSp(final JavaCodeGenContext ctx, final Progress progress, final Queue<SpHost> _spHosts, final Map<String, SpDbHost> _spHostMaps, final GenTaskByTableViewSp tableViewSp, final String[] spNames) {
+    private List<Callable<ExecuteResult>> prepareSp(final JavaCodeGenContext ctx, final Progress progress,
+            final Queue<SpHost> _spHosts, final Map<String, SpDbHost> _spHostMaps,
+            final GenTaskByTableViewSp tableViewSp, final String[] spNames) {
         List<Callable<ExecuteResult>> results = new ArrayList<>();
         for (final String spName : spNames) {
             Callable<ExecuteResult> spWorker = new Callable<ExecuteResult>() {
                 @Override
                 public ExecuteResult call() throws Exception {
-                /*	progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildSp:"
-                            + spName);*/
-                    ExecuteResult result = new ExecuteResult("Build SP[" + tableViewSp.getAllInOneName() + "." + spName + "] Host");
+                    /*
+                     * progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildSp:" + spName);
+                     */
+                    ExecuteResult result =
+                            new ExecuteResult("Build SP[" + tableViewSp.getAllInOneName() + "." + spName + "] Host");
                     progress.setOtherMessage(result.getTaskName());
                     try {
                         SpHost spHost = buildSpHost(ctx, tableViewSp, spName);
@@ -127,7 +142,6 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
                         }
                         result.setSuccessal(true);
                     } catch (Exception e) {
-                        log.error(result.getTaskName() + " exception.", e);
                         progress.setOtherMessage(e.getMessage());
                     }
                     return result;
@@ -138,23 +152,27 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         return results;
     }
 
-    private List<Callable<ExecuteResult>> prepareView(final JavaCodeGenContext ctx, final Progress progress, final Queue<ViewHost> _viewHosts, final GenTaskByTableViewSp tableViewSp, final String[] viewNames) {
+    private List<Callable<ExecuteResult>> prepareView(final JavaCodeGenContext ctx, final Progress progress,
+            final Queue<ViewHost> _viewHosts, final GenTaskByTableViewSp tableViewSp, final String[] viewNames,
+            final DatabaseCategory dbCategory) {
         List<Callable<ExecuteResult>> results = new ArrayList<>();
         for (final String view : viewNames) {
             Callable<ExecuteResult> viewWorker = new Callable<ExecuteResult>() {
                 @Override
                 public ExecuteResult call() throws Exception {
-                    /*progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildView:"
-                            + view);*/
-                    ExecuteResult result = new ExecuteResult("Build View[" + tableViewSp.getAllInOneName() + "." + view + "] Host");
+                    /*
+                     * progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildView:" + view);
+                     */
+                    ExecuteResult result =
+                            new ExecuteResult("Build View[" + tableViewSp.getAllInOneName() + "." + view + "] Host");
                     progress.setOtherMessage(result.getTaskName());
                     try {
-                        ViewHost vhost = buildViewHost(ctx, tableViewSp, view);
+                        ViewHost vhost = buildViewHost(ctx, tableViewSp, dbCategory, view);
                         if (null != vhost)
                             _viewHosts.add(vhost);
                         result.setSuccessal(true);
-                    } catch (Exception e) {
-                        log.error(result.getTaskName() + " exception.", e);
+                    } catch (Throwable e) {
+                        throw e;
                     }
                     return result;
                 }
@@ -164,24 +182,28 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         return results;
     }
 
-    private List<Callable<ExecuteResult>> prepareTable(final JavaCodeGenContext ctx, final Progress progress, final Queue<JavaTableHost> _tableHosts, final GenTaskByTableViewSp tableViewSp, final String[] tableNames) {
+    private List<Callable<ExecuteResult>> prepareTable(final JavaCodeGenContext ctx, final Progress progress,
+            final Queue<JavaTableHost> _tableHosts, final GenTaskByTableViewSp tableViewSp, final String[] tableNames,
+            final DatabaseCategory dbCategory) {
         List<Callable<ExecuteResult>> results = new ArrayList<>();
         for (final String tableName : tableNames) {
             Callable<ExecuteResult> worker = new Callable<ExecuteResult>() {
                 @Override
                 public ExecuteResult call() throws Exception {
-                    /*progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildTable:"
-							+ table);*/
-                    ExecuteResult result = new ExecuteResult("Build Table[" + tableViewSp.getAllInOneName() + "." + tableName + "] Host");
+                    /*
+                     * progress.setOtherMessage("正在为所有表/存储过程生成DAO准备数据.<br/>buildTable:" + table);
+                     */
+                    ExecuteResult result = new ExecuteResult(
+                            "Build Table[" + tableViewSp.getAllInOneName() + "." + tableName + "] Host");
                     progress.setOtherMessage(result.getTaskName());
                     try {
-                        JavaTableHost tableHost = buildTableHost(ctx, tableViewSp, tableName);
+                        JavaTableHost tableHost = buildTableHost(ctx, tableViewSp, tableName, dbCategory);
                         result.setSuccessal(true);
                         if (null != tableHost)
                             _tableHosts.add(tableHost);
                         result.setSuccessal(true);
-                    } catch (Exception e) {
-                        log.error(result.getTaskName() + " exception.", e);
+                    } catch (Throwable e) {
+                        throw e;
                     }
                     return result;
                 }
@@ -191,7 +213,8 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         return results;
     }
 
-    private void prepareDbFromTableViewSp(CodeGenContext codeGenCtx, List<GenTaskByTableViewSp> tableViewSps, List<GenTaskBySqlBuilder> sqlBuilders) {
+    private void prepareDbFromTableViewSp(CodeGenContext codeGenCtx, List<GenTaskByTableViewSp> tableViewSps,
+            List<GenTaskBySqlBuilder> sqlBuilders) throws SQLException {
         for (GenTaskByTableViewSp task : tableViewSps) {
             addDatabaseSet(codeGenCtx, task.getDatabaseSetName());
         }
@@ -200,10 +223,10 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         }
     }
 
-    private ViewHost buildViewHost(CodeGenContext codeGenCtx, GenTaskByTableViewSp tableViewSp, String viewName) throws Exception {
+    private ViewHost buildViewHost(CodeGenContext codeGenCtx, GenTaskByTableViewSp tableViewSp,
+            DatabaseCategory dbCategory, String viewName) throws Exception {
         JavaCodeGenContext ctx = (JavaCodeGenContext) codeGenCtx;
         if (!DbUtils.viewExists(tableViewSp.getAllInOneName(), viewName)) {
-            log.error(String.format("The view[%s] doesn't exist, pls check", viewName));
             return null;
         }
 
@@ -218,10 +241,12 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         vhost.setViewName(viewName);
 
         List<String> primaryKeyNames = DbUtils.getPrimaryKeyNames(tableViewSp.getAllInOneName(), viewName);
-        List<AbstractParameterHost> params = DbUtils.getAllColumnNames(tableViewSp.getAllInOneName(), viewName, new JavaColumnNameResultSetExtractor(tableViewSp.getAllInOneName(), viewName));
+        List<AbstractParameterHost> params = DbUtils.getAllColumnNames(tableViewSp.getAllInOneName(), viewName,
+                new JavaColumnNameResultSetExtractor(tableViewSp.getAllInOneName(), viewName, dbCategory));
         List<JavaParameterHost> realParams = new ArrayList<JavaParameterHost>();
         if (null == params) {
-            throw new Exception(String.format("The column names of view[%s, %s] is null", tableViewSp.getAllInOneName(), viewName));
+            throw new Exception(
+                    String.format("The column names of view[%s, %s] is null", tableViewSp.getAllInOneName(), viewName));
         }
         for (AbstractParameterHost p : params) {
             JavaParameterHost jHost = (JavaParameterHost) p;
@@ -235,7 +260,8 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         return vhost;
     }
 
-    private SpHost buildSpHost(CodeGenContext codeGenCtx, GenTaskByTableViewSp tableViewSp, String spName) throws Exception {
+    private SpHost buildSpHost(CodeGenContext codeGenCtx, GenTaskByTableViewSp tableViewSp, String spName)
+            throws Exception {
         JavaCodeGenContext ctx = (JavaCodeGenContext) codeGenCtx;
         String schema = "dbo";
         String realSpName = spName;
@@ -250,7 +276,8 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         currentSp.setName(realSpName);
 
         if (!DbUtils.spExists(tableViewSp.getAllInOneName(), currentSp)) {
-            throw new Exception(String.format("The store procedure[%s, %s] doesn't exist, pls check", tableViewSp.getAllInOneName(), currentSp.getName()));
+            throw new Exception(String.format("The store procedure[%s, %s] doesn't exist, pls check",
+                    tableViewSp.getAllInOneName(), currentSp.getName()));
         }
 
         SpHost spHost = new SpHost();
@@ -262,11 +289,13 @@ public class JavaDataPreparerOfTableViewSpProcessor extends AbstractJavaDataPrep
         spHost.setDbName(tableViewSp.getDatabaseSetName());
         spHost.setPojoClassName(className);
         spHost.setSpName(spName);
-        List<AbstractParameterHost> params = DbUtils.getSpParams(tableViewSp.getAllInOneName(), currentSp, new JavaSpParamResultSetExtractor(tableViewSp.getAllInOneName(), currentSp.getName()));
+        List<AbstractParameterHost> params = DbUtils.getSpParams(tableViewSp.getAllInOneName(), currentSp,
+                new JavaSpParamResultSetExtractor(tableViewSp.getAllInOneName(), currentSp.getName()));
         List<JavaParameterHost> realParams = new ArrayList<>();
         String callParams = "";
         if (null == params) {
-            throw new Exception(String.format("The sp[%s, %s] parameters is null", tableViewSp.getAllInOneName(), currentSp.getName()));
+            throw new Exception(String.format("The sp[%s, %s] parameters is null", tableViewSp.getAllInOneName(),
+                    currentSp.getName()));
         }
         for (AbstractParameterHost p : params) {
             callParams += "?,";

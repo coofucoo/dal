@@ -1,8 +1,9 @@
-package ${host.getPackageName()};
+package ${host.getPackageName()}.dao;
 
 #foreach( $field in ${host.getDaoImports()} )
 import ${field};
 #end
+import ${host.getPackageName()}.entity.${host.getPojoClassName()};
 
 import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
 

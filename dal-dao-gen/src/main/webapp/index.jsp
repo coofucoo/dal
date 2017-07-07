@@ -18,6 +18,9 @@
     <meta name="description" content="">
     <meta name="author" content="">
     <title>Ctrip DAO Generator</title>
+    <!-- Favicons -->
+    <link href="/static/images/favicon.ico" rel="shortcut icon">
+    <link href="/static/css/common.css?codegen=${version}" rel="stylesheet">
     <!-- Bootstrap core CSS -->
     <link href="/static/bootstrap/css/bootstrap.min.css?codegen=${version}" rel="stylesheet">
     <link href="/static/bootstrap/css/bootstrap-responsive.min.css?codegen=${version}" rel="stylesheet">
@@ -25,34 +28,8 @@
     <link href="/static/jstree/themes/default/style.min.css?codegen=${version}" rel="stylesheet"/>
     <link href="/static/css/multiple-select.css?codegen=${version}" rel="stylesheet">
     <link href="/static/css/selectize.bootstrap3.css?codegen=${version}" rel="stylesheet">
-    <link href="/static/css/common.css?codegen=${version}" rel="stylesheet">
-
-    <!-- Documentation extras -->
-    <!--
-             <link href="../css/docs.css" rel="stylesheet">
-             -->
-    <!--
-             <link href="../css/pygments-manni.css" rel="stylesheet">
-             -->
-    <!--[if lt IE 9]>
-    <script src="./docs-assets/js/ie8-responsive-file-warning.js"></script>
-    <![endif]-->
-    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]-->
-    <!-- Favicons -->
-    <link rel="shortcut icon" href="/static/images/favicon.ico">
-
     <!-- Loading Flat UI -->
-    <link href="/static/Flat-UI-master/css/flat-ui.css?codegen=${codegenpageflag}" rel="stylesheet">
-
-    <!-- HTML5 shim, for IE6-8 support of HTML5 elements. All other JS at the end of file. -->
-    <!--[if lt IE 9]>
-    <script src="/static/Flat-UI-master/js/html5shiv.js"></script>
-    <script src="/static/Flat-UI-master/js/respond.min.js"></script>
-    <![endif]-->
+    <link href="/static/Flat-UI-master/css/flat-ui.css?codegen=${version}" rel="stylesheet">
 </head>
 <body>
 <!-- Docs master nav -->
@@ -140,17 +117,6 @@
                     </select>
                     </div>
                 </div>
-                <!--
-              <div class="row-fluid">
-                 <div class="control-group">
-                       <label class="control-label popup_label">方式：</label>
-                   <select id="regenerate" class="span9 pupup_text">
-                           <option value="regenerate">重新生成</option>
-                        <option value="increment_gen">增量生成，仅生成被修改的DAO</option>
-                    </select>
-                 </div>
-              </div>
-               -->
                 <div class="row-fluid useNewPojo">
                     <label class="popup_label"><input id="newPojo" type="checkbox" checked="checked">生成代码时附带数据库中的类型（DALFx>V1.2.0.6）</label>
                 </div>
@@ -309,7 +275,7 @@
                         </div>
                     </div>
                     <div class="row-fluid mysql_hide">
-                        <label class="popup_label"><input id="cud_by_sp" type="checkbox" checked="true">增删改使用SPA或SP3（SqlServer请勾选，MySql请去除）</label>
+                        <label class="popup_label"><input id="cud_by_sp" type="checkbox">增删改使用SPA或SP3（SqlServer请勾选，MySql请去除）</label>
                     </div>
                     <div class="row-fluid">
                         <label class="popup_label"><input id="pagination" type="checkbox" checked="true">增加分页方法</label>
@@ -320,13 +286,13 @@
                         <div class="panel panel-default">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
-                                    <input id="SelectAllCreateMethodAPIChk" type="checkbox" checked="true"> <a
+                                    <input id="selectAllCreateMethodAPIChk" type="checkbox" checked="true"> <a
                                         data-toggle="collapse" data-parent="#accordion" href="#collapseOne"
                                         style="font-size: 15px"> Create Method </a>
                                 </h4>
                             </div>
                             <div id="collapseOne" class="panel-collapse collapse in">
-                                <div class="panel-body" id="CreateMethodListDiv"
+                                <div class="panel-body" id="createMethodListDiv"
                                      style="max-height: 300px; overflow-y: auto">Create Method list here.
                                 </div>
                             </div>
@@ -334,13 +300,13 @@
                         <div class="panel panel-default">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
-                                    <input id="SelectAllRetrieveMethodAPIChk" type="checkbox" checked="true"> <a
+                                    <input id="selectAllRetrieveMethodAPIChk" type="checkbox" checked="true"> <a
                                         data-toggle="collapse" data-parent="#accordion" href="#collapseTwo"
                                         style="font-size: 15px"> Retrieve Method </a>
                                 </h4>
                             </div>
                             <div id="collapseTwo" class="panel-collapse collapse">
-                                <div class="panel-body" id="RetrieveMethodListDiv"
+                                <div class="panel-body" id="retrieveMethodListDiv"
                                      style="max-height: 300px; overflow-y: auto">Retrieve Method list here.
                                 </div>
                             </div>
@@ -348,13 +314,13 @@
                         <div class="panel panel-default">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
-                                    <input id="SelectAllUpdateMethodAPIChk" type="checkbox" checked="true"> <a
+                                    <input id="selectAllUpdateMethodAPIChk" type="checkbox" checked="true"> <a
                                         data-toggle="collapse" data-parent="#accordion" href="#collapseThree"
                                         style="font-size: 15px"> Update Method </a>
                                 </h4>
                             </div>
                             <div id="collapseThree" class="panel-collapse collapse">
-                                <div class="panel-body" id="UpdateMethodListDiv"
+                                <div class="panel-body" id="updateMethodListDiv"
                                      style="max-height: 300px; overflow-y: auto">Update Method list here.
                                 </div>
                             </div>
@@ -362,13 +328,13 @@
                         <div class="panel panel-default">
                             <div class="panel-heading">
                                 <h4 class="panel-title">
-                                    <input id="SelectAllDeleteMethodAPIChk" type="checkbox" checked="true"> <a
+                                    <input id="selectAllDeleteMethodAPIChk" type="checkbox" checked="true"> <a
                                         data-toggle="collapse" data-parent="#accordion" href="#collapseFour"
                                         style="font-size: 15px"> Delete Method </a>
                                 </h4>
                             </div>
                             <div id="collapseFour" class="panel-collapse collapse">
-                                <div class="panel-body" id="DeleteMethodListDiv"
+                                <div class="panel-body" id="deleteMethodListDiv"
                                      style="max-height: 300px; overflow-y: auto">Delete Method list here.
                                 </div>
                             </div>
@@ -765,17 +731,22 @@
     </div>
 </div>
 <!--End modal-->
-<!-- JS and analytics only. -->
-<!-- Bootstrap core JavaScript================================================== -->
-<!-- Placed at the end of the document so the pages load faster -->
+
+<!--[if lt IE 9]>
+<script src="./docs-assets/js/ie8-responsive-file-warning.js"></script>
+<![endif]-->
+<!--[if lt IE 9]>
+<script src="/static/Flat-UI-master/js/html5shiv.js"></script>
+<script src="/static/Flat-UI-master/js/respond.min.js"></script>
+<![endif]-->
 <script src="/static/jquery/jquery-1.10.2.min.js?codegen=${version}"></script>
+<script src="/static/jquery/jquery.blockui.min.js?codegen=${version}"></script>
+<script src="/static/jquery/jquery.multiple.select.js?codegen=${version}"></script>
 <script src="/static/bootstrap/js/bootstrap.min.js?codegen=${version}"></script>
 <script src="/static/w2ui/w2ui-1.3.2.min.js?codegen=${version}"></script>
 <script src="/static/jstree/jstree.js?codegen=${version}"></script>
-<script src="/static/jquery/jquery.blockui.min.js?codegen=${version}"></script>
 <script src="/static/js/sprintf.js?codegen=${version}"></script>
 <script src="/static/ace/ace.js?codegen=${version}"></script>
-<script src="/static/jquery/jquery.multiple.select.js?codegen=${version}"></script>
 <script src="/static/js/selectize.min.js?codegen=${version}"></script>
 <script src="/static/js/cblock.js?codegen=${version}"></script>
 <script src="/static/js/header.js?codegen=${version}"></script>

@@ -1,68 +1,43 @@
 package com.ctrip.platform.dal.daogen.dao;
 
+import com.ctrip.platform.dal.dao.DalHints;
+import com.ctrip.platform.dal.dao.DalRowMapper;
+import com.ctrip.platform.dal.dao.DalTableDao;
+import com.ctrip.platform.dal.dao.StatementParameters;
+import com.ctrip.platform.dal.dao.helper.DalDefaultJpaMapper;
+import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
+import com.ctrip.platform.dal.dao.sqlbuilder.FreeSelectSqlBuilder;
 import com.ctrip.platform.dal.daogen.entity.DalApi;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
-import javax.sql.DataSource;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
-public class DalApiDao {
-    private JdbcTemplate jdbcTemplate;
+public class DalApiDao extends BaseDao {
+    private DalTableDao<DalApi> client;
+    private DalRowMapper<DalApi> dalApiRowMapper = null;
 
-    public void setDataSource(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
+    public DalApiDao() throws SQLException {
+        client = new DalTableDao<>(new DalDefaultJpaParser<>(DalApi.class));
+        dalApiRowMapper = new DalDefaultJpaMapper<>(DalApi.class);
     }
 
-    public List<DalApi> getAllDalApi() {
-        return this.jdbcTemplate.query("SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list",
-                new RowMapper<DalApi>() {
-                    public DalApi mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return DalApi.visitRow(rs);
-                    }
-                });
+    public DalApi getDalApiById(Integer id) throws SQLException {
+        DalHints hints = DalHints.createIfAbsent(null);
+        return client.queryByPk(id, hints);
     }
 
-    public DalApi getDalApiById(Integer id) {
-        List<DalApi> apis = this.jdbcTemplate.query("SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list WHERE id = ?",
-                new Object[]{id}, new RowMapper<DalApi>() {
-                    public DalApi mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return DalApi.visitRow(rs);
-                    }
-                });
-        return null != apis && apis.size() > 0 ? apis.get(0) : null;
-    }
-
-    public List<DalApi> getDalApiByLanguage(String language) {
-        List<DalApi> apis = this.jdbcTemplate.query("SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list WHERE language = ?",
-                new Object[]{language}, new RowMapper<DalApi>() {
-                    public DalApi mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return DalApi.visitRow(rs);
-                    }
-                });
-        return apis;
-    }
-
-    public List<DalApi> getDalApiByLanguageAndDbtype(String language, String db_type) {
-        List<DalApi> apis = this.jdbcTemplate.query("SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list WHERE language = ? AND db_type=?",
-                new Object[]{language, db_type}, new RowMapper<DalApi>() {
-                    public DalApi mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return DalApi.visitRow(rs);
-                    }
-                });
-        return apis;
-    }
-
-    public List<DalApi> getDalApiByLanguageAndDbtypeAndSptype(String language, String db_type, String sp_type) {
-        List<DalApi> apis = this.jdbcTemplate.query("SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list WHERE language = ? AND db_type=? AND sp_type=?",
-                new Object[]{language, db_type, sp_type}, new RowMapper<DalApi>() {
-                    public DalApi mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return DalApi.visitRow(rs);
-                    }
-                });
-        return apis;
+    public List<DalApi> getDalApiByLanguageAndDbtype(String language, String db_type) throws SQLException {
+        FreeSelectSqlBuilder<List<DalApi>> builder = new FreeSelectSqlBuilder<>(dbCategory);
+        builder.setTemplate(
+                "SELECT id, language, db_type, crud_type, method_declaration, method_description,sp_type FROM api_list WHERE language = ? AND db_type=?");
+        StatementParameters parameters = new StatementParameters();
+        int i = 1;
+        parameters.set(i++, "language", Types.VARCHAR, language);
+        parameters.set(i++, "db_type", Types.VARCHAR, db_type);
+        builder.mapWith(dalApiRowMapper);
+        DalHints hints = DalHints.createIfAbsent(null).allowPartial();
+        return queryDao.query(builder, parameters, hints);
     }
 
 }

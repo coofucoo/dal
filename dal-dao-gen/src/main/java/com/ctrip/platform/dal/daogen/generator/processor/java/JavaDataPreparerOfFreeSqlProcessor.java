@@ -13,34 +13,38 @@ import com.ctrip.platform.dal.daogen.host.java.FreeSqlHost;
 import com.ctrip.platform.dal.daogen.host.java.JavaGivenSqlResultSetExtractor;
 import com.ctrip.platform.dal.daogen.host.java.JavaMethodHost;
 import com.ctrip.platform.dal.daogen.host.java.JavaParameterHost;
+import com.ctrip.platform.dal.daogen.log.LoggerManager;
 import com.ctrip.platform.dal.daogen.utils.DbUtils;
-import com.ctrip.platform.dal.daogen.utils.SpringBeanGetter;
+import com.ctrip.platform.dal.daogen.utils.BeanGetter;
 import com.ctrip.platform.dal.daogen.utils.SqlBuilder;
 import com.ctrip.platform.dal.daogen.utils.TaskUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.WordUtils;
-import org.apache.log4j.Logger;
 
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.Callable;
 
 public class JavaDataPreparerOfFreeSqlProcessor extends AbstractJavaDataPreparer implements DalProcessor {
-    private static Logger log = Logger.getLogger(JavaDataPreparerOfFreeSqlProcessor.class);
-
     @Override
     public void process(CodeGenContext context) throws Exception {
-        List<Callable<ExecuteResult>> _freeSqlCallables = prepareFreeSql((CodeGenContext) context);
-        TaskUtils.invokeBatch(log, _freeSqlCallables);
+        try {
+            List<Callable<ExecuteResult>> _freeSqlCallables = prepareFreeSql((CodeGenContext) context);
+            TaskUtils.invokeBatch(_freeSqlCallables);
+        } catch (Throwable e) {
+            LoggerManager.getInstance().error(e);
+            throw e;
+        }
     }
 
-    private List<Callable<ExecuteResult>> prepareFreeSql(CodeGenContext codeGenCtx) {
+    private List<Callable<ExecuteResult>> prepareFreeSql(CodeGenContext codeGenCtx) throws SQLException {
         JavaCodeGenContext ctx = (JavaCodeGenContext) codeGenCtx;
         int projectId = ctx.getProjectId();
         final Progress progress = ctx.getProgress();
         final String namespace = ctx.getNamespace();
         final Map<String, JavaMethodHost> _freeSqlPojoHosts = ctx.get_freeSqlPojoHosts();
         final Queue<FreeSqlHost> _freeSqlHosts = ctx.getFreeSqlHosts();
-        DaoByFreeSql daoByFreeSql = SpringBeanGetter.getDaoByFreeSql();
+        DaoByFreeSql daoByFreeSql = BeanGetter.getDaoByFreeSql();
         List<GenTaskByFreeSql> freeSqlTasks;
         if (ctx.isRegenerate()) {
             freeSqlTasks = daoByFreeSql.updateAndGetAllTasks(projectId);
@@ -89,7 +93,7 @@ public class JavaDataPreparerOfFreeSqlProcessor extends AbstractJavaDataPreparer
                         method.setPackageName(namespace);
                         method.setScalarType(task.getScalarType());
                         method.setPojoType(task.getPojoType());
-                        method.setPaging(task.isPagination());
+                        method.setPaging(task.getPagination());
                         method.setCrud_type(task.getCrud_type());
                         method.setComments(task.getComment());
                         if (task.getPojo_name() != null && !task.getPojo_name().isEmpty())
@@ -103,7 +107,8 @@ public class JavaDataPreparerOfFreeSqlProcessor extends AbstractJavaDataPreparer
                             p.setSqlType(Integer.valueOf(splitedParam[1]));
                             p.setJavaClass(Consts.jdbcSqlTypeToJavaClass.get(p.getSqlType()));
                             p.setValidationValue(DbUtils.mockATest(p.getSqlType()));
-                            boolean sensitive = splitedParam.length >= 3 ? Boolean.parseBoolean(splitedParam[2]) : false;
+                            boolean sensitive =
+                                    splitedParam.length >= 3 ? Boolean.parseBoolean(splitedParam[2]) : false;
                             p.setSensitive(sensitive);
                             params.add(p);
                         }
@@ -112,10 +117,14 @@ public class JavaDataPreparerOfFreeSqlProcessor extends AbstractJavaDataPreparer
                         method.setHints(task.getHints());
                         methods.add(method);
 
-                        if (method.getPojoClassName() != null && !method.getPojoClassName().isEmpty() && !_freeSqlPojoHosts.containsKey(method.getPojoClassName()) && !"update".equalsIgnoreCase(method.getCrud_type())) {
+                        if (method.getPojoClassName() != null && !method.getPojoClassName().isEmpty()
+                                && !_freeSqlPojoHosts.containsKey(method.getPojoClassName())
+                                && !"update".equalsIgnoreCase(method.getCrud_type())) {
                             List<JavaParameterHost> paramHosts = new ArrayList<>();
 
-                            for (AbstractParameterHost _ahost : DbUtils.testAQuerySql(task.getAllInOneName(), task.getSql_content(), task.getParameters(), new JavaGivenSqlResultSetExtractor())) {
+                            for (AbstractParameterHost _ahost : DbUtils.testAQuerySql(task.getAllInOneName(),
+                                    task.getSql_content(), task.getParameters(),
+                                    new JavaGivenSqlResultSetExtractor())) {
                                 paramHosts.add((JavaParameterHost) _ahost);
                             }
 
@@ -135,15 +144,14 @@ public class JavaDataPreparerOfFreeSqlProcessor extends AbstractJavaDataPreparer
         return results;
     }
 
-    private void prepareDbFromFreeSql(CodeGenContext codeGenCtx, List<GenTaskByFreeSql> freeSqls) {
+    private void prepareDbFromFreeSql(CodeGenContext codeGenCtx, List<GenTaskByFreeSql> freeSqls) throws SQLException {
         for (GenTaskByFreeSql task : freeSqls) {
             addDatabaseSet(codeGenCtx, task.getDatabaseSetName());
         }
     }
 
     /**
-     * 按照DbName以及ClassName做一次GroupBy(相同DbName的GenTaskByFreeSql作为一组)，
-     * 且ClassName不区分大小写
+     * 按照DbName以及ClassName做一次GroupBy(相同DbName的GenTaskByFreeSql作为一组)， 且ClassName不区分大小写
      *
      * @param tasks
      * @return

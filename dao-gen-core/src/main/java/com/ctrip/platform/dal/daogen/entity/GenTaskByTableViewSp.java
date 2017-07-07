@@ -1,89 +1,120 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import com.ctrip.platform.dal.daogen.utils.DatabaseSetUtils;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.sql.Types;
 
-public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp> {
-    private int id;
-    private int project_id;
-    private String allInOneName;
+@Entity
+@Database(name = "dao")
+@Table(name = "task_table")
+public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp>, DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "project_id")
+    @Type(value = Types.INTEGER)
+    private Integer project_id;
+
+    @Column(name = "db_name")
+    @Type(value = Types.VARCHAR)
     private String databaseSetName;
+
+    @Column(name = "table_names")
+    @Type(value = Types.LONGVARCHAR)
     private String table_names;
+
+    @Column(name = "view_names")
+    @Type(value = Types.LONGVARCHAR)
     private String view_names;
+
+    @Column(name = "sp_names")
+    @Type(value = Types.LONGVARCHAR)
     private String sp_names;
+
+    @Column(name = "prefix")
+    @Type(value = Types.VARCHAR)
     private String prefix;
+
+    @Column(name = "suffix")
+    @Type(value = Types.VARCHAR)
     private String suffix;
-    private boolean cud_by_sp;
-    private boolean pagination;
-    private boolean generated;
-    private int version;
+
+    @Column(name = "cud_by_sp")
+    @Type(value = Types.BIT)
+    private Boolean cud_by_sp;
+
+    @Column(name = "pagination")
+    @Type(value = Types.BIT)
+    private Boolean pagination;
+
+    @Column(name = "generated")
+    @Type(value = Types.BIT)
+    private Boolean generated;
+
+    @Column(name = "version")
+    @Type(value = Types.INTEGER)
+    private Integer version;
+
+    @Column(name = "update_user_no")
+    @Type(value = Types.VARCHAR)
     private String update_user_no;
+
+    @Column(name = "update_time")
+    @Type(value = Types.TIMESTAMP)
     private Timestamp update_time;
-    private String str_update_time = "";
+
+    @Column(name = "comment")
+    @Type(value = Types.LONGVARCHAR)
     private String comment;
-    //csharp 或者 java，表示C#风格或者Java风格，@Name or ?
+
+    @Column(name = "sql_style")
+    @Type(value = Types.VARCHAR)
     private String sql_style;
+
+    @Column(name = "api_list")
+    @Type(value = Types.LONGVARCHAR)
     private String api_list;
-    private int approved;
-    private String str_approved;
+
+    @Column(name = "approved")
+    @Type(value = Types.INTEGER)
+    private Integer approved;
+
+    @Column(name = "approveMsg")
+    @Type(value = Types.LONGVARCHAR)
     private String approveMsg;
 
-    /**
-     * 根据Resultset返回GenTaskByTableView实体对象
-     *
-     * @param rs
-     * @return
-     * @throws SQLException
-     */
-    public static GenTaskByTableViewSp visitRow(ResultSet rs) throws SQLException {
-        GenTaskByTableViewSp task = new GenTaskByTableViewSp();
-        task.setId(rs.getInt(1));
-        task.setProject_id(rs.getInt(2));
-        String databaseSet = rs.getString(3);
-        task.setAllInOneName(DatabaseSetUtils.getAllInOneName(databaseSet));
-        task.setDatabaseSetName(databaseSet);
-        task.setTable_names(rs.getString(4));
-        task.setView_names(rs.getString(5));
-        task.setSp_names(rs.getString(6));
-        task.setPrefix(rs.getString(7));
-        task.setSuffix(rs.getString(8));
-        task.setCud_by_sp(rs.getBoolean(9));
-        task.setPagination(rs.getBoolean(10));
-        task.setGenerated(rs.getBoolean(11));
-        task.setVersion(rs.getInt(12));
-        task.setUpdate_user_no(rs.getString(13));
-        task.setUpdate_time(rs.getTimestamp(14));
-        task.setComment(rs.getString(15));
-        task.setSql_style(rs.getString("sql_style"));
-        task.setApi_list(rs.getString("api_list"));
-        task.setApproved(rs.getInt("approved"));
-        task.setApproveMsg(rs.getString("approveMsg"));
+    private String allInOneName;
 
-        try {
-            if (task.getApproved() == 1) {
-                task.setStr_approved("未审批");
-            } else if (task.getApproved() == 2) {
-                task.setStr_approved("通过");
-            } else if (task.getApproved() == 3) {
-                task.setStr_approved("未通过");
-            } else {
-                task.setStr_approved("通过");
-            }
-            Date date = new Date(task.getUpdate_time().getTime());
-            task.setStr_update_time(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date));
-        } catch (Throwable e) {
-        }
-        return task;
+    private String str_approved;
+
+    private String str_update_time = "";
+
+    public Integer getId() {
+        return id;
     }
 
-    @Override
-    public int compareTo(GenTaskByTableViewSp o) {
-        return this.getAllInOneName().compareTo(o.getAllInOneName());
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Integer getProject_id() {
+        return project_id;
+    }
+
+    public void setProject_id(Integer project_id) {
+        this.project_id = project_id;
     }
 
     public String getDatabaseSetName() {
@@ -92,30 +123,6 @@ public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp> {
 
     public void setDatabaseSetName(String databaseSetName) {
         this.databaseSetName = databaseSetName;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public int getProject_id() {
-        return project_id;
-    }
-
-    public void setProject_id(int project_id) {
-        this.project_id = project_id;
-    }
-
-    public String getAllInOneName() {
-        return allInOneName;
-    }
-
-    public void setAllInOneName(String allInOneName) {
-        this.allInOneName = allInOneName;
     }
 
     public String getTable_names() {
@@ -158,38 +165,37 @@ public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp> {
         this.suffix = suffix;
     }
 
-    public boolean isCud_by_sp() {
+    public Boolean getCud_by_sp() {
         return cud_by_sp;
     }
 
-    public void setCud_by_sp(boolean cud_by_sp) {
+    public void setCud_by_sp(Boolean cud_by_sp) {
         this.cud_by_sp = cud_by_sp;
     }
 
-    public boolean isPagination() {
+    public Boolean getPagination() {
         return pagination;
     }
 
-    public void setPagination(boolean pagination) {
+    public void setPagination(Boolean pagination) {
         this.pagination = pagination;
     }
 
-    public boolean isGenerated() {
+    public Boolean getGenerated() {
         return generated;
     }
 
-    public void setGenerated(boolean generated) {
+    public void setGenerated(Boolean generated) {
         this.generated = generated;
     }
 
-    public int getVersion() {
+    public Integer getVersion() {
         return version;
     }
 
-    public void setVersion(int version) {
+    public void setVersion(Integer version) {
         this.version = version;
     }
-
 
     public String getUpdate_user_no() {
         return update_user_no;
@@ -231,28 +237,12 @@ public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp> {
         this.api_list = api_list;
     }
 
-    public String getStr_update_time() {
-        return str_update_time;
-    }
-
-    public void setStr_update_time(String str_update_time) {
-        this.str_update_time = str_update_time;
-    }
-
-    public int getApproved() {
+    public Integer getApproved() {
         return approved;
     }
 
-    public void setApproved(int approved) {
+    public void setApproved(Integer approved) {
         this.approved = approved;
-    }
-
-    public String getStr_approved() {
-        return str_approved;
-    }
-
-    public void setStr_approved(String str_approved) {
-        this.str_approved = str_approved;
     }
 
     public String getApproveMsg() {
@@ -263,15 +253,44 @@ public class GenTaskByTableViewSp implements Comparable<GenTaskByTableViewSp> {
         this.approveMsg = approveMsg;
     }
 
+    public String getAllInOneName() {
+        return allInOneName;
+    }
+
+    public void setAllInOneName(String allInOneName) {
+        this.allInOneName = allInOneName;
+    }
+
+    public void setStr_update_time(String str_update_time) {
+        this.str_update_time = str_update_time;
+    }
+
+    public String getStr_update_time() {
+        return str_update_time;
+    }
+
+    public void setStr_approved(String str_approved) {
+        this.str_approved = str_approved;
+    }
+
+    public String getStr_approved() {
+        return str_approved;
+    }
+
     public String getApprovePreview() {
-        String str = this.getTable_names();
-        if (this.getView_names() != null && !this.getView_names().isEmpty()) {
-            str += "," + this.getView_names();
+        String str = getTable_names();
+        if (getView_names() != null && !getView_names().isEmpty()) {
+            str += "," + getView_names();
         }
-        if (this.getSp_names() != null && !this.getSp_names().isEmpty()) {
-            str += "," + this.getSp_names();
+        if (getSp_names() != null && !getSp_names().isEmpty()) {
+            str += "," + getSp_names();
         }
         return str;
+    }
+
+    @Override
+    public int compareTo(GenTaskByTableViewSp o) {
+        return getAllInOneName().compareTo(o.getAllInOneName());
     }
 
 }

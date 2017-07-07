@@ -1,49 +1,59 @@
 package com.ctrip.platform.dal.daogen.entity;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.ctrip.platform.dal.dao.DalPojo;
+import com.ctrip.platform.dal.dao.annotation.Database;
+import com.ctrip.platform.dal.dao.annotation.Type;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.sql.Types;
 
-public class DatabaseSet implements Comparable<DatabaseSet> {
-    private int id;
+@Entity
+@Database(name = "dao")
+@Table(name = "databaseset")
+public class DatabaseSet implements Comparable<DatabaseSet>, DalPojo {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Type(value = Types.INTEGER)
+    private Integer id;
+
+    @Column(name = "name")
+    @Type(value = Types.VARCHAR)
     private String name;
+
+    @Column(name = "provider")
+    @Type(value = Types.VARCHAR)
     private String provider;
+
+    @Column(name = "shardingStrategy")
+    @Type(value = Types.LONGVARCHAR)
     private String shardingStrategy;
-    private int groupId;
 
+    @Column(name = "groupId")
+    @Type(value = Types.INTEGER)
+    private Integer groupId;
+
+    @Column(name = "update_user_no")
+    @Type(value = Types.VARCHAR)
     private String update_user_no;
+
+    @Column(name = "update_time")
+    @Type(value = Types.TIMESTAMP)
     private Timestamp update_time;
-    private String str_update_time = "";
 
-    public static DatabaseSet visitRow(ResultSet rs) throws SQLException {
-        DatabaseSet set = new DatabaseSet();
-        set.setId(rs.getInt(1));
-        set.setName(rs.getString(2));
-        set.setProvider(rs.getString(3));
-        set.setShardingStrategy(rs.getString(4));
-        set.setGroupId(rs.getInt(5));
-        set.setUpdate_user_no(rs.getString("update_user_no"));
-        set.setUpdate_time(rs.getTimestamp("update_time"));
-        try {
-            Date date = new Date(set.getUpdate_time().getTime());
-            set.setStr_update_time(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date));
-        } catch (Throwable e) {
-        }
-        return set;
-    }
+    private String str_update_time;
 
-    @Override
-    public int compareTo(DatabaseSet o) {
-        return this.name.compareTo(o.getName());
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -71,16 +81,16 @@ public class DatabaseSet implements Comparable<DatabaseSet> {
         this.shardingStrategy = shardingStrategy;
     }
 
-    public int getGroupId() {
+    public boolean hasShardingStrategy() {
+        return shardingStrategy != null && !shardingStrategy.isEmpty();
+    }
+
+    public Integer getGroupId() {
         return groupId;
     }
 
-    public void setGroupId(int groupId) {
+    public void setGroupId(Integer groupId) {
         this.groupId = groupId;
-    }
-
-    public boolean hasShardingStrategy() {
-        return this.shardingStrategy != null && !this.shardingStrategy.isEmpty();
     }
 
     public String getUpdate_user_no() {
@@ -105,6 +115,11 @@ public class DatabaseSet implements Comparable<DatabaseSet> {
 
     public void setStr_update_time(String str_update_time) {
         this.str_update_time = str_update_time;
+    }
+
+    @Override
+    public int compareTo(DatabaseSet o) {
+        return name.compareTo(o.getName());
     }
 
 }

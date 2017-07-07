@@ -1,8 +1,11 @@
-package ${host.getPackageName()};
+package test.${host.getPackageName()};
 
 #foreach( $field in ${host.getTestImports()} )
 import ${field};
 #end
+import ${host.getPackageName()}.dao.${host.getClassName()}Dao;
+import ${host.getPackageName()}.entity.*;
+
 import java.sql.SQLException;
 
 import org.junit.*;

@@ -1,18 +1,16 @@
 package com.ctrip.platform.dal.dao;
 
+import static com.ctrip.platform.dal.dao.helper.EntityManager.getMapper;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
 
-import com.ctrip.platform.dal.dao.helper.DalFirstResultMerger;
-import com.ctrip.platform.dal.dao.helper.DalListMerger;
-import com.ctrip.platform.dal.dao.helper.DalObjectRowMapper;
+import com.ctrip.platform.dal.common.enums.DatabaseCategory;
 import com.ctrip.platform.dal.dao.helper.DalRangedResultMerger;
 import com.ctrip.platform.dal.dao.helper.DalRowCallbackExtractor;
 import com.ctrip.platform.dal.dao.helper.DalRowMapperExtractor;
-import com.ctrip.platform.dal.dao.helper.DalSingleResultExtractor;
-import com.ctrip.platform.dal.dao.helper.DalSingleResultMerger;
 import com.ctrip.platform.dal.dao.sqlbuilder.FreeSelectSqlBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.FreeUpdateSqlBuilder;
 import com.ctrip.platform.dal.dao.sqlbuilder.MultipleSqlBuilder;
@@ -31,6 +29,7 @@ import com.ctrip.platform.dal.dao.task.QuerySqlTask;
  */
 public final class DalQueryDao {
 	private String logicDbName;
+	private DatabaseCategory dbCategory;
 	private DalClient client;
 	private static final boolean NULLABLE = true;
 	private DalRequestExecutor executor;
@@ -43,6 +42,7 @@ public final class DalQueryDao {
 		this.logicDbName = logicDbName;
 		this.client = DalClientFactory.getClient(logicDbName);
 		this.executor = executor;
+		dbCategory = DalClientFactory.getDalConfigure().getDatabaseSet(logicDbName).getDatabaseCategory();
 	}
 	
 	public DalClient getClient() {
@@ -61,7 +61,7 @@ public final class DalQueryDao {
 	 */
 	public <T> List<T> query(String sql, StatementParameters parameters, DalHints hints, DalRowMapper<T> mapper) 
 			throws SQLException {
-		return queryList(sql, parameters, hints, new DalRowMapperExtractor<T>(mapper));
+		return query(new FreeSelectSqlBuilder<List<T>>(dbCategory).setTemplate(sql).mapWith(mapper), parameters, hints);
 	}
 
 	/**
@@ -78,7 +78,7 @@ public final class DalQueryDao {
 	 */
 	public <T> List<T> query(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
-		return queryList(sql, parameters, hints, new DalRowMapperExtractor<T>(new DalObjectRowMapper<T>()));
+		return query(new FreeSelectSqlBuilder<List<T>>(dbCategory).setTemplate(sql).mapWith(getMapper(clazz)), parameters, hints);
 	}
 
 	/**
@@ -92,7 +92,7 @@ public final class DalQueryDao {
 	 */
 	public void query(String sql, StatementParameters parameters, DalHints hints, DalRowCallback callback) 
 			throws SQLException {
-		queryList(sql, parameters, hints, new DalRowCallbackExtractor(callback));
+		query(new FreeSelectSqlBuilder<>(dbCategory).setTemplate(sql).extractorWith(new DalRowCallbackExtractor(callback)).nullable(), parameters, hints);
 	}
 	
 	/**
@@ -123,13 +123,13 @@ public final class DalQueryDao {
 	 * @throws SQLException
 	 */
 	public <T> T query(FreeSelectSqlBuilder<T> builder, StatementParameters parameters, DalHints hints) throws SQLException {
-		ResultMerger<T> merger = (ResultMerger<T>)builder.getResultMerger(hints);
+		ResultMerger<T> merger = builder.getResultMerger(hints);
 		DalResultSetExtractor<T> extractor = builder.getResultExtractor(hints);
 		
 		DalSqlTaskRequest<T> request = new DalSqlTaskRequest<>(
 				logicDbName, builder.with(parameters), hints, new QuerySqlTask<>(extractor), merger);
 		
-		return executor.execute(hints, request, NULLABLE);
+		return executor.execute(hints, request, builder.isNullable());
 	}
 	
 	/**
@@ -180,7 +180,7 @@ public final class DalQueryDao {
 	 */
 	public <T> T queryForObject(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
-		return queryForObject(sql, parameters, hints, new DalObjectRowMapper<T>(), !NULLABLE);
+		return queryForObject(sql, parameters, hints, getMapper(clazz), !NULLABLE);
 	}
 
 	/**
@@ -197,7 +197,7 @@ public final class DalQueryDao {
 	 */
 	public <T> T queryForObjectNullable(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
-		return queryForObject(sql, parameters, hints, new DalObjectRowMapper<T>(), NULLABLE);
+		return queryForObject(sql, parameters, hints, getMapper(clazz), NULLABLE);
 	}
 	
 	/**
@@ -248,7 +248,7 @@ public final class DalQueryDao {
 	 */
 	public <T> T queryFirst(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
-		return queryFirst(sql, parameters, hints, new DalObjectRowMapper<T>(), !NULLABLE);
+		return queryFirst(sql, parameters, hints, getMapper(clazz), !NULLABLE);
 	}
 
 	/**
@@ -265,7 +265,7 @@ public final class DalQueryDao {
 	 */
 	public <T> T queryFirstNullable(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
-		return queryFirst(sql, parameters, hints, new DalObjectRowMapper<T>(), NULLABLE);
+		return queryFirst(sql, parameters, hints, getMapper(clazz), NULLABLE);
 	}
 
 	/**
@@ -301,7 +301,7 @@ public final class DalQueryDao {
 	 */
 	public <T> List<T> queryTop(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz, int count) 
 			throws SQLException {
-		return queryRange(sql, parameters, hints,  new DalObjectRowMapper<T>(), 0, count);
+		return queryRange(sql, parameters, hints,  getMapper(clazz), 0, count);
 	}
 
 	/**
@@ -338,7 +338,7 @@ public final class DalQueryDao {
 	 */
 	public <T> List<T> queryFrom(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz, int start, int count) throws SQLException {
 		hints.set(DalHintEnum.resultSetType, ResultSet.TYPE_SCROLL_INSENSITIVE);
-		return queryRange(sql, parameters, hints, new DalObjectRowMapper<T>(), start, count);
+		return queryRange(sql, parameters, hints, getMapper(clazz), start, count);
 	}
 	
 	/**
@@ -363,51 +363,25 @@ public final class DalQueryDao {
 	
 	private <T> T queryForObject(String sql, StatementParameters parameters, DalHints hints, DalRowMapper<T> mapper, boolean nullable) 
 			throws SQLException {
-		ResultMerger<T> defaultMerger = new DalSingleResultMerger<>();
-		return commonQuery(sql, parameters, hints, new DalSingleResultExtractor<T>(mapper, true), defaultMerger, nullable);
+		return query(new FreeSelectSqlBuilder<T>(dbCategory).setTemplate(sql).mapWith(mapper).requireSingle().setNullable(nullable), parameters, hints);
 	}
 
 	private <T> T queryFirst(String sql, StatementParameters parameters, DalHints hints, DalRowMapper<T> mapper, boolean nullable) 
 			throws SQLException {
-		ResultMerger<T> defaultMerger = new DalFirstResultMerger<>((Comparator<T>)hints.getSorter());
-		return commonQuery(sql, parameters, hints, new DalSingleResultExtractor<T>(mapper, false), defaultMerger, nullable);
-	}
-
-	private <T> List<T> queryList(String sql, StatementParameters parameters, DalHints hints, DalResultSetExtractor<List<T>> extractor) 
-			throws SQLException {
-		ResultMerger<List<T>> defaultMerger = new DalListMerger<>((Comparator<T>)hints.getSorter());
-		return commonQuery(sql, parameters, hints, extractor, defaultMerger, NULLABLE);
+		return query(new FreeSelectSqlBuilder<T>(dbCategory).setTemplate(sql).mapWith(mapper).requireFirst().setNullable(nullable), parameters, hints);
 	}
 	
 	private <T> List<T> queryRange(String sql, StatementParameters parameters, DalHints hints, DalRowMapper<T> mapper, int start, int count) 
 			throws SQLException {
-		ResultMerger<List<T>> defaultMerger;
-		DalRowMapperExtractor<T> extractor;
+		FreeSelectSqlBuilder<List<T>> builder = new FreeSelectSqlBuilder<List<T>>(dbCategory).setTemplate(sql).mapWith(mapper);
 		
 		if(hints.isAllShards() || hints.isInShards()) {
-			defaultMerger = new DalRangedResultMerger<>((Comparator<T>)hints.getSorter(), start, count);
-			extractor = new DalRowMapperExtractor<T>(mapper);
+			builder.mergerWith(new DalRangedResultMerger<>((Comparator<T>)hints.getSorter(), start, count));
+			builder.extractorWith(new DalRowMapperExtractor<T>(mapper));
 		} else {
-			defaultMerger = null;// No need for non cross shard operation
-			extractor = new DalRowMapperExtractor<T>(mapper, start, count);
+			builder.extractorWith(new DalRowMapperExtractor<T>(mapper, start, count));
 		}
-		
-		return commonQuery(sql, parameters, hints, extractor, defaultMerger, NULLABLE);
-	}
 
-	private <T> T commonQuery(
-			String sql, StatementParameters parameters, 
-			DalHints hints, DalResultSetExtractor<T> extractor,
-			ResultMerger<T> defaultMerger,
-			boolean nullable) throws SQLException {
-		ResultMerger<T> merger = hints.is(DalHintEnum.resultMerger) ?
-					(ResultMerger<T>)hints.get(DalHintEnum.resultMerger) : 
-					defaultMerger;
-		
-		DalSqlTaskRequest<T> request = new DalSqlTaskRequest<>(
-				logicDbName, sql, parameters, hints, 
-				new QuerySqlTask<>(extractor), merger);
-		
-		return executor.execute(hints, request, nullable);
-	}
+		return query(builder, parameters, hints);
+	}	
 }

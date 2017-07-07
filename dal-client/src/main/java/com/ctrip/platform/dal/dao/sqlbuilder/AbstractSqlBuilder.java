@@ -100,12 +100,9 @@ public abstract class AbstractSqlBuilder implements TableSqlBuilder {
 	public static String wrapField(DatabaseCategory dbCategory, String fieldName){
 		if("*".equalsIgnoreCase(fieldName) || fieldName.contains("ROW_NUMBER") || fieldName.contains(",")){
 			return fieldName;
-		}else if(dbCategory == DatabaseCategory.MySql){
-			return "`" + fieldName + "`";
-		}else if(dbCategory == DatabaseCategory.SqlServer){
-			return "[" + fieldName + "]";
 		}
-		return fieldName;
+
+		return dbCategory.quote(fieldName);
 	}
 	
 	/**
@@ -505,8 +502,7 @@ public abstract class AbstractSqlBuilder implements TableSqlBuilder {
 	}
 	
 	/**
-	 *  In操作，允许字段值为NULL.
-	 *  若传入的字段值数量为0，则抛出异常。
+	 *  In操作，允许参数为NULL，或者字段值为NULL, 或者传入的字段值数量为0。
 	 * @param field 字段
 	 * @param paramValues 字段值
 	 * @return
@@ -517,12 +513,8 @@ public abstract class AbstractSqlBuilder implements TableSqlBuilder {
 	}
 	
 	public AbstractSqlBuilder inNullable(String field, List<?> paramValues, int sqlType, boolean sensitive) throws SQLException {
-		if(null == paramValues){
+		if(null == paramValues || paramValues.size() == 0){
 			return add(new NullValueClauseEntry());
-		}
-		
-		if(paramValues.size() == 0){
-			throw new SQLException(field + " must have more than one value.");
 		}
 		
 		Iterator<?> ite = paramValues.iterator();

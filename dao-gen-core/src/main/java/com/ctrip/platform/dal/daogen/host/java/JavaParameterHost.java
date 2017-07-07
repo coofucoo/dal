@@ -2,6 +2,7 @@ package com.ctrip.platform.dal.daogen.host.java;
 
 import com.ctrip.platform.dal.daogen.Consts;
 import com.ctrip.platform.dal.daogen.enums.ConditionType;
+import com.ctrip.platform.dal.daogen.enums.DatabaseCategory;
 import com.ctrip.platform.dal.daogen.enums.ParameterDirection;
 import com.ctrip.platform.dal.daogen.host.AbstractParameterHost;
 import org.apache.commons.lang.WordUtils;
@@ -11,7 +12,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class JavaParameterHost extends AbstractParameterHost {
-
     private int index;
 
     private int sqlType;
@@ -46,10 +46,17 @@ public class JavaParameterHost extends AbstractParameterHost {
 
     private boolean sensitive = false;// whether the param is sensitive
 
-    private boolean operator = false; //whether is opearator and,or,not
+    private boolean operator = false; // whether is opearator and,or,not
 
-    public JavaParameterHost() {
-    }
+    private String comment;
+
+    private String defaultValue;
+
+    private DatabaseCategory dbCategory;
+
+    private int dataType;
+
+    public JavaParameterHost() {}
 
     public JavaParameterHost(JavaParameterHost host) {
         this.index = host.getIndex();
@@ -67,6 +74,10 @@ public class JavaParameterHost extends AbstractParameterHost {
         this.conditional = host.isConditional();
         this.sensitive = host.isSensitive();
         this.operator = host.isOperator();
+        this.comment = host.getComment();
+        this.defaultValue = host.getDefaultValue();
+        this.dbCategory = host.getDbCategory();
+        this.dataType = host.getDataType();
     }
 
     public boolean isInParameter() {
@@ -185,22 +196,44 @@ public class JavaParameterHost extends AbstractParameterHost {
         this.operator = operator;
     }
 
+    public String getComment() {
+        return comment == null ? "" : comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment != null ? comment : "";
+    }
+
     public String getCapitalizedName() {
         String tempName = name.replace("@", "");
         // if (tempName.contains("_")) {
-        // tempName = WordUtils.capitalizeFully(tempName.replace('_', ' '))
-        // .replace(" ", "");
+        // tempName = WordUtils.capitalizeFully(tempName.replace('_', ' ')).replace(" ", "");
         // }
         return WordUtils.capitalize(tempName);
+    }
+
+    public String getCamelCaseCapitalizedName() {
+        String temp = name.replace("@", "");
+        if (temp.contains("_")) {
+            temp = WordUtils.capitalizeFully(temp.replace('_', ' ')).replace(" ", "");
+        }
+        return WordUtils.capitalize(temp);
     }
 
     public String getUncapitalizedName() {
         String tempName = name.replace("@", "");
         // if (tempName.contains("_")) {
-        // tempName = WordUtils.capitalizeFully(tempName.replace('_', ' '))
-        // .replace(" ", "");
+        // tempName = WordUtils.capitalizeFully(tempName.replace('_', ' ')).replace(" ", "");
         // }
         return WordUtils.uncapitalize(tempName);
+    }
+
+    public String getCamelCaseUncapitalizedName() {
+        String temp = name.replace("@", "");
+        if (temp.contains("_")) {
+            temp = WordUtils.capitalizeFully(temp.replace('_', ' ')).replace(" ", "");
+        }
+        return WordUtils.uncapitalize(temp);
     }
 
     public String getClassDisplayName() {
@@ -237,4 +270,52 @@ public class JavaParameterHost extends AbstractParameterHost {
         this.validationValue = validationValue;
     }
 
+    public String getDefaultValue() {
+        return defaultValue;
+    }
+
+    public void setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+
+    public DatabaseCategory getDbCategory() {
+        return dbCategory;
+    }
+
+    public void setDbCategory(DatabaseCategory dbCategory) {
+        this.dbCategory = dbCategory;
+    }
+
+    public int getDataType() {
+        return dataType;
+    }
+
+    public void setDataType(int dataType) {
+        this.dataType = dataType;
+    }
+
+    public boolean isDataChangeLastTimeField() {
+        boolean result = true;
+        result &= isMySql();
+        result &= isDataChangeLastTime();
+        result &= isTimestampType();
+        result &= isDefaultValueDefined();
+        return result;
+    }
+
+    private boolean isMySql() {
+        return dbCategory == DatabaseCategory.MySql;
+    }
+
+    private boolean isDataChangeLastTime() {
+        return name.toUpperCase().equals(DATACHANGE_LASTTIME);
+    }
+
+    private boolean isTimestampType() {
+        return dataType == Types.TIMESTAMP;
+    }
+
+    private boolean isDefaultValueDefined() {
+        return defaultValue != null;
+    }
 }

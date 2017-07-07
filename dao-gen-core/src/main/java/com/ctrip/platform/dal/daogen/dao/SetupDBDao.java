@@ -1,46 +1,42 @@
 package com.ctrip.platform.dal.daogen.dao;
 
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.JdbcUtils;
+import com.ctrip.platform.dal.dao.DalClient;
+import com.ctrip.platform.dal.dao.DalClientFactory;
+import com.ctrip.platform.dal.dao.DalHints;
+import com.ctrip.platform.dal.daogen.utils.ResourceUtils;
 
-import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
 public class SetupDBDao {
-    private JdbcTemplate jdbcTemplate;
+    private static final String DATA_BASE = "dao";
 
-    public void setDataSource(DataSource dataSource) {
-        jdbcTemplate = new JdbcTemplate(dataSource);
+    public boolean executeSqlScript(String sqlScript) throws SQLException {
+        if (sqlScript == null || sqlScript.length() == 0)
+            return false;
+
+        String[] array = sqlScript.split(";"); // toUpperCase().
+        DalClient client = DalClientFactory.getClient(DATA_BASE);
+        DalHints hints = DalHints.createIfAbsent(null);
+        client.batchUpdate(array, hints);
+        return true;
     }
 
-    public boolean executeSqlScript(String sqlScript) {
-        boolean result = false;
-        if (sqlScript == null || sqlScript.length() == 0) {
-            return result;
-        }
-
-        try {
-            String[] array = sqlScript.split(";"); // toUpperCase().
-            jdbcTemplate.batchUpdate(array);
-            result = true;
-        } catch (DataAccessException e) {
-            e.printStackTrace();
-        }
-        return result;
-    }
-
-    public Set<String> getCatalogTableNames(String catalog) {
+    public Set<String> getCatalogTableNames(String catalog) throws Exception {
         Set<String> set = new HashSet<>();
+        Connection connection = null;
         ResultSet resultSet = null;
 
         try {
-            java.sql.DatabaseMetaData databaseMetaData = jdbcTemplate.getDataSource().getConnection().getMetaData();
-            if (databaseMetaData == null) {
+            connection = DalClientFactory.getDalConfigure().getLocator().getConnection(DATA_BASE);
+            DatabaseMetaData databaseMetaData = connection.getMetaData();
+
+            if (databaseMetaData == null)
                 return set;
-            }
             resultSet = databaseMetaData.getTables(catalog, null, null, null);
             if (resultSet != null) {
                 while (resultSet.next()) {
@@ -50,11 +46,11 @@ public class SetupDBDao {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
-            JdbcUtils.closeResultSet(resultSet);
+            ResourceUtils.close(resultSet);
+            ResourceUtils.close(connection);
         }
         return set;
     }
+
 }
